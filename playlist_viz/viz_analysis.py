@@ -3,6 +3,11 @@
 Created on Tue Jan 12 18:46:12 2021
 
 @author: Max
+TODO:
+    proper interfacing with the spotify API.
+    EDA on the subdivided groups.
+    Proper Investigation on the different dimensionality reduction techniques.
+    3d visualization, more interactive visualization.
 """
 
 from sklearn.cluster import SpectralClustering,DBSCAN,AgglomerativeClustering
@@ -13,14 +18,16 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+runFramed = False
+
 csv_folder = "playlist_csvs"
 csv_folder_out = "output_playlists"
 
 ### TODO: add script to run through all csvs in folder.
 test_pool =  "_crate_10_.csv" #"liked.csv" #
 test_ex = "jul_2020_chance_encounters.csv"
-nPlaylists = 6
-crate_range = [10,11]#,11,12] #,12
+nPlaylists = 40#6
+crate_range = [9,10,11,12,13]#,11,12] #,12
 df_pool = pd.DataFrame()
 
 for ind in crate_range:
@@ -65,27 +72,52 @@ print("HERE0")
 dimRedModel = TSNE()
 poolReduced = dimRedModel.fit_transform(np_clust_pool)
 sns.scatterplot(poolReduced[:,0],poolReduced[:,1])
-print("HERE1")
-## Clustering.
-sc = SpectralClustering(n_clusters = nPlaylists,n_jobs=-1)
-#sc = AgglomerativeClustering(n_clusters = nPlaylists,n_jobs=-1)
-#sc = DBSCAN(n_jobs=-1)
-splitVals = sc.fit_predict(poolReduced)
-nPlaylistOut = np.unique(splitVals).size
-print("HERE2")
-
-for ind in range(0,nPlaylistOut):
-    idxTest = np.where(splitVals==ind)
-    idxTest = idxTest[0]
-    playlistOut = df_pool.iloc[idxTest]
-    playName = "".join(("playlist",str(ind),".csv"))
-    playlistOut.to_csv("/".join((csv_folder_out,playName)))
-
-### TODO: write cluster values back out to some usable variable so I can mess with visualization.
-sns.scatterplot(poolReduced[:,0],poolReduced[:,1],hue=splitVals)
-
-
-
-
-
-
+## 
+if runFramed:
+    bl_corner = input("Bottom left corner (x,y):")
+    bl_coords = bl_corner.split(",")
+    tr_corner = input("Top right corner (x,y):")
+    tr_coords = tr_corner.split(",")
+    
+    ### THIS IS JANK, probably find a better way to do this.
+    for ind,elt in enumerate(tr_coords):
+        tmp = elt.replace("(",'')
+        tr_coords[ind] = np.float64(tmp.replace(")",""))
+    for ind,elt in enumerate(bl_coords):
+        tmp = elt.replace("(",'')
+        bl_coords[ind] = np.float64(tmp.replace(")",""))
+    
+    #write out specified box
+    xrange_limit = np.logical_and((poolReduced[:,0]< tr_coords[0]) , (poolReduced[:,0] > bl_coords[0]))
+    yrange_limit = np.logical_and(poolReduced[:,1]< tr_coords[1],poolReduced[:,1] > bl_coords[1])
+    specRange = np.where(np.logical_and(xrange_limit,yrange_limit))
+    idxSave =  specRange[0]
+    playlistOut = df_pool.iloc[idxSave]
+    #playName = "".join(("playlist",str(ind),".csv"))
+    playlistOut.to_csv("/".join((csv_folder_out,"playlist_spec.csv")))
+    #specRange = [specRange_0(0),specRange_1(0)]
+else:
+        ## Clustering.
+    #sc = SpectralClustering(n_clusters = nPlaylists,n_jobs=-1)
+    sc = AgglomerativeClustering(n_clusters = nPlaylists)
+       # sc = DBSCAN(n_jobs=-1)
+    
+    splitVals = sc.fit_predict(poolReduced)
+    nPlaylistOut = np.unique(splitVals).size
+    print("HERE2")
+    
+    for ind in range(0,nPlaylistOut):
+        idxTest = np.where(splitVals==ind)
+        idxTest = idxTest[0]
+        playlistOut = df_pool.iloc[idxTest]
+        playName = "".join(("playlist",str(ind),".csv"))
+        playlistOut.to_csv("/".join((csv_folder_out,playName)))
+    
+    ### TODO: write cluster values back out to some usable variable so I can mess with visualization.
+    sns.scatterplot(poolReduced[:,0],poolReduced[:,1],hue=splitVals)
+    
+    
+    
+    
+    
+    
