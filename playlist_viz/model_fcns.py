@@ -7,10 +7,10 @@ Created on Wed Jan 13 20:58:20 2021
 from  sklearn.manifold import TSNE, Isomap
 from sklearn.preprocessing import StandardScaler
 
-def dimReduce(df_in):
+def dimReduce(df_in,n_components):
     scaler = StandardScaler()
     np_clust_pool = scaler.fit_transform(df_in)
     ## Dimensionality reduction.
-    dimRedModel = TSNE()
+    dimRedModel = TSNE(n_components = n_components)
    # dimRedModel = Isomap(n_components=2,n_jobs =-1)
     return dimRedModel.fit_transform(np_clust_pool)
