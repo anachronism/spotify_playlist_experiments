@@ -3,6 +3,7 @@
 Created on Wed Jan 13 19:09:45 2021
 
 @author: Max
+
 """
 # Shows the top tracks for a user
 
@@ -10,6 +11,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import secretsLocal # NOTE: Must create this file yourself. Make functions that return the id and secret.
 import pandas as pd 
+from datetime import datetime
 
 def createPlaylist(playlistName,df):
         
@@ -23,7 +25,10 @@ def createPlaylist(playlistName,df):
     
     currUser = sp.me()
     userID = currUser["id"]
-    newPlay = sp.user_playlist_create(userID,playlistName,public=False,description="autogen playlist")
+    now = datetime.now()
+    dtString=now.strftime("%m/%d/%Y %H:%m:%S")
+    strDescription = "autogen playlist: "+ dtString
+    newPlay = sp.user_playlist_create(userID,playlistName,public=False,description=strDescription)
     playID = newPlay["id"]
     
     df_ids = df["Track URI"]

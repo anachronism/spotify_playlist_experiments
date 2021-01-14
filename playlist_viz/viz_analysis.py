@@ -23,8 +23,8 @@ import pandas as pd
 import seaborn as sns
 
 
-runFramed = False
 projectDown = False
+writePlaylists = False
 
 csv_folder = "playlist_csvs"
 csv_folder_out = "output_playlists"
@@ -75,14 +75,13 @@ sc = AgglomerativeClustering(n_clusters = nPlaylists)
 
 splitVals = sc.fit_predict(poolReduced)
 nPlaylistOut = np.unique(splitVals).size
-print("HERE2")
 
 for ind in range(0,nPlaylistOut):
     idxTest = np.where(splitVals==ind)
     idxTest = idxTest[0]
     playlistOut = df_pool.iloc[idxTest]
     playName = "".join(("playlist",str(ind),".csv"))
-    if ind < nPlayExport:
+    if ind < nPlayExport and writePlaylists:
         createPlaylist(playName,playlistOut)
     playlistOut.to_csv("/".join((csv_folder_out,playName)))
 
