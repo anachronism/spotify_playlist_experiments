@@ -12,5 +12,5 @@ def dimReduce(df_in,n_components):
     np_clust_pool = scaler.fit_transform(df_in)
     ## Dimensionality reduction.
     dimRedModel = TSNE(n_components = n_components)
-   # dimRedModel = Isomap(n_components=2,n_jobs =-1)
+ #   dimRedModel = Isomap(n_components=n_components,n_jobs =-1)
     return dimRedModel.fit_transform(np_clust_pool)

@@ -12,7 +12,7 @@ TODO:
 """
 #import plotly.express as px
 import plotly
-import plotly.graph_objs as go
+import plotly.graph_objects as go
 
 from sklearn.cluster import SpectralClustering,DBSCAN,AgglomerativeClustering
 from spotify_interactions import createPlaylist
@@ -23,11 +23,11 @@ import pandas as pd
 import seaborn as sns
 
 
-projectDown =False
+projectDown =True
 clusterData = True
 plot3D = True
 writePlaylists = False
-writeMaxPlaylists = False
+writeMaxPlaylists = True
 
 csv_folder = "playlist_csvs"
 csv_folder_out = "output_playlists"
@@ -44,7 +44,14 @@ nPlayExport = 5
 playExportInterval = 1#6
 crate_range = [6,7,9,10,11,12,13,15]#,11,12] #,12
 
-playlistDance = np.zeros((nPlaylists,))
+minMaxPlots = ["Danceability","Valence","Energy"]
+    # Running index, probably inefficient.
+playlistVals = np.zeros((len(minMaxPlots),nPlaylists))
+playlistMax = dict()
+playlistMin = dict()
+#playlistDance = np.zeros((nPlaylists,))
+#playlistValence = np.zeros((nPlaylists,))
+#playlistEnergy = np.zeros((nPlaylists,))
 
 if projectDown:
     df_pool = pd.DataFrame()   
@@ -96,22 +103,25 @@ else:
 
 nPlaylistOut = np.unique(splitVals).size
 nTrip = 0
-maxDanceability = 0
-minDanceability = 1
+maxVals = np.zeros(len(minMaxPlots))
+minVals = np.ones(len(minMaxPlots))
 
 for ind in range(0,nPlaylistOut):
     idxTest = np.where(splitVals==ind)
     idxTest = idxTest[0]
     playlistOut = df_pool.iloc[idxTest]
     
-    # Running index, probably inefficient.
-    playlistDance[ind] = playlistOut["Danceability"].mean(axis=0)
-    if playlistDance[ind] > maxDanceability:
-        maxDanceability = playlistDance[ind]
-        playlistDanceMax = playlistOut
-    elif playlistDance[ind] < minDanceability:
-        minDanceability = playlistDance[ind]  
-        playlistDanceMin = playlistOut
+
+
+    for ind_plots,val in enumerate(minMaxPlots):
+        playlistVals[ind_plots,ind] = playlistOut[val].mean(axis=0)
+
+        if playlistVals[ind_plots,ind] > maxVals[ind_plots]:
+            maxVals[ind_plots] = playlistVals[ind_plots,ind]
+            playlistMax[val] = playlistOut
+        elif playlistVals[ind_plots,ind] < minVals[ind_plots]:
+            minVals[ind_plots] = playlistVals[ind_plots,ind] 
+            playlistMin[val] = playlistOut
         
     playName = "playlist"+str(ind)+".csv"
     if nTrip < nPlayExport and writePlaylists and not ind % playExportInterval:
@@ -120,11 +130,11 @@ for ind in range(0,nPlaylistOut):
     playlistOut.to_csv("/".join((csv_folder_out,playName)))
 
 if writeMaxPlaylists:
-    createPlaylist("Maximum Danceability",playlistDanceMax)
-    createPlaylist("Minimum Danceability",playlistDanceMin)
+    for val in minMaxPlots:
+        createPlaylist("Maximum "+val,playlistMax[val])
+        createPlaylist("Minimum "+val,playlistMin[val])
 
-sns.histplot(playlistDance)
-### TODO: write cluster values back out to some usable variable so I can mess with visualization.
+#sns.histplot(playlistDance)
 
 if plot3D:
     plotly.offline.plot({
