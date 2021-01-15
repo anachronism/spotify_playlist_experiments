@@ -11,7 +11,6 @@ sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-
 
 
 dw_ids = si.getPlaylistIDs(sp,playlistSearch)
-
 trackIds = []
 for playID in dw_ids:
 	tmp, __ = si.getTracksFromPlaylist(sp,playID,False,False)

@@ -18,9 +18,7 @@ def initSpotipy(scope):
     CLIENT_ID = secretsLocal.clientID()
     CLIENT_SECRET = secretsLocal.clientSecret()
     REDIRECT_URI = "http://localhost:8080" # NOTE:Must add this to your spotify app suitable links. 
-    #scope=
-    
-    
+        
     return spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope,client_id=CLIENT_ID,client_secret=CLIENT_SECRET,redirect_uri=REDIRECT_URI))
 
 
@@ -68,9 +66,7 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
     midBreak= False    
 
     if dfIn:
-
         df_ids = df["Track URI"]
-
         while (not df_ids.empty) and (not midBreak): 
             if df_ids.size > 100:
                 sp.playlist_add_items(playID, df_ids.iloc[0:99])
@@ -78,6 +74,7 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
             else:
                 sp.playlist_add_items(playID, df_ids.iloc[0:])
                 midBreak = True
+
     else: #Assuming list of ids, or names, or spotify URIs 
         idsProc = objIn
         midBreak= False    
@@ -94,8 +91,7 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
 
 
 def getTopGenres(df_in):
-    #this is a stub right now.
-    
+    #this is a stub right now.    
     return []
 
 def getPlaylistID(sp,strName):    
@@ -164,13 +160,8 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
         newIDs = [item["id"]for item in tracksNew]
         trackIds = trackIds + newIDs
 
-       # newURIs = [item["uri"]for item in tracksNew]
-       # trackURIs=trackURIs + newURIs
         if ret_af:
             audioFeatures = audioFeatures + sp.audio_features(newIDs)
-        # for idx in newIDs:
-        #     audioAnalysis.append(sp.audio_analysis( idx))
-        #     print(idx)
         nextUp = plHandle["next"]
 
     if ret_af:
@@ -187,12 +178,20 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
 
 def tracksToDF(tracks,af):
     # Currently, putting off the most annoying parts (indexing to get the artist name)
+    
     artistObjs = [x["album"]["artists"] for x in tracks]
+    artistName = []
+    artistURI = []
+    for idx,elt in enumerate(artistObjs):
+        artistName.append( [x["name"] for x in elt])
+        artistURI.append([x["uri"] for x in elt])
 
     trackDict = {
         "Album Name":  [x["album"]["name"] for x in tracks],
         "Title": [x["name"] for x in tracks],
         "Song URI": [x["uri"] for x in tracks],
+        "Artist":artistName,
+        "Artist URI": artistURI,
         "Acousticness" : [x["acousticness"] for x in af],
         "Danceability":[x["danceability"] for x in af],
         "Energy":[x["energy"] for x in af],
@@ -209,6 +208,9 @@ def tracksToDF(tracks,af):
     return pd.DataFrame.from_dict(trackDict)
 
 def saveTrackDF(df,filepath):
+    if isinstance(df["Artist"][0],list):
+        df["Artist"] = df["Artist"].apply(lambda x:",".join(x))
+        df["Artist URI"] = df["Artist URI"].apply(lambda x:",".join(x))
     df.to_csv(filepath)
 
 def savePlaylistToCSV(plName,filepath):
