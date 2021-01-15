@@ -13,16 +13,21 @@ import secretsLocal # NOTE: Must create this file yourself. Make functions that 
 import pandas as pd 
 from datetime import datetime
 
-def createPlaylist(playlistName,df):
-        
+def initSpotipy():
     CLIENT_ID = secretsLocal.clientID()
     CLIENT_SECRET = secretsLocal.clientSecret()
     REDIRECT_URI = "http://localhost:8080" # NOTE:Must add this to your spotify app suitable links. 
     scope="playlist-modify-private"
     
     
-    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope,client_id=CLIENT_ID,client_secret=CLIENT_SECRET,redirect_uri=REDIRECT_URI))
+    return spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope,client_id=CLIENT_ID,client_secret=CLIENT_SECRET,redirect_uri=REDIRECT_URI))
+
+
+def createPlaylist(playlistName,df):
+        
     
+    sp = initSpotipy()
+
     #Generate relevant means (Practically should just do the mean over the whole DF and get the specific thing but w/e)
     tempoMean =  df["Tempo"].mean(axis=0)
     danceMean =  df["Danceability"].mean(axis=0)
@@ -60,4 +65,88 @@ def createPlaylist(playlistName,df):
             sp.playlist_add_items(playID, df_ids.iloc[0:])
             midBreak = True
     
+def getTopGenres(df_in):
+    #this is a stub right now.
+    
+    return []
+
+def getPlaylistID(sp,strName):    
+    
+    currUser = sp.me()
+    userID = currUser["id"]
+
+    foundPlaylist = False
+    offset = 0
+   
+    while not foundPlaylist:
+        currVal = sp.current_user_playlists(limit=50, offset=offset)
+        plList = currVal["items"]
+        tmp = next((item for item in plList if item["name"] == strName),None)
+        if not (tmp is None):
+            foundPlaylist = True
+            return tmp["id"]
+        else:
+            offset = offset +plList["limit"]
+
+
+def getTracksFromPlaylist(sp,plName):
+    idUse = getPlaylistID(sp,plName)
+    offset = 0
+    plHandle = sp.playlist_items(idUse,offset = offset)
+    nTracks = plHandle["total"]
+    trackIds = []
+    audioFeatures = []
+    audioAnalysis = []
+    tracksSave = []
+
+    while not( plHandle["next"] is None):
+        # save tracks.
+        plHandle = sp.playlist_items(idUse,offset = offset) 
+        tracksNew = [item["track"] for item in plHandle["items"]]
+        tracksSave = tracksSave + tracksNew
+        newIDs = [item["id"]for item in tracksNew]
+
+
+        trackIds = trackIds + newIDs
+        audioFeatures = audioFeatures + sp.audio_features(newIDs)
+        # for idx in newIDs:
+        #     audioAnalysis.append(sp.audio_analysis( idx))
+        #     print(idx)
+
+        offset = offset + plHandle["limit"]
+    return (tracksSave,audioFeatures)
+
+def tracksToDF(tracks,af):
+    # Currently, putting off the most annoying parts (indexing to get the artist name)
+    artistObjs = [x["album"]["artists"] for x in tracks]
+
+    trackDict = {
+        "Album Name":  [x["album"]["name"] for x in tracks],
+        "Title": [x["name"] for x in tracks],
+        "Song URI": [x["uri"] for x in tracks],
+        "Acousticness" : [x["acousticness"] for x in af],
+        "Danceability":[x["danceability"] for x in af],
+        "Energy":[x["energy"] for x in af],
+        "Instrumentalness":[x["instrumentalness"] for x in af],
+        "Key":[x["key"] for x in af],
+        "Liveness":[x["key"] for x in af],
+        "Loudness":[x["loudness"] for x in af],
+        "Speechiness":[x["speechiness"] for x in af],
+        "Tempo":[x["tempo"] for x in af],
+        "TimeSig":[x["time_signature"] for x in af],
+        "Valence":[x["valence"] for x in af],
+        
+    }
+    return pd.DataFrame.from_dict(trackDict)
+
+def saveTrackDF(df,filepath):
+    df.to_csv(filepath)
+
+def savePlaylistToCSV(plName,filepath):
+    sp = initSpotipy()
+    tracksSave,audioFeatures = getTracksFromPlaylist(sp,plName)
+    df_save = tracksToDF(tracksSave,audioFeatures)
+    saveTrackDF(df_save,filepath)
+    
+
 

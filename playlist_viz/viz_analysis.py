@@ -4,17 +4,20 @@ Created on Tue Jan 12 18:46:12 2021
 
 @author: Max
 TODO:
-    proper interfacing with the spotify API.
+    Get cluster means, make it so that the random gen selects a number of clusters far from each other.
+    proper interfacing with the spotify API, init side.
     EDA on the subdivided groups.
     Proper Investigation on the different dimensionality reduction techniques.
-    3d visualization, more interactive visualization.
     Look at genre groupings.
+    See if i can incorporate timbre patterns (12 dim vectors) (look into, see if can PCA down before later reduction).
+    With playlist URIs in text file, scrape them down. 
 """
 #import plotly.express as px
-import plotly
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+from plotly import tools 
 
-from sklearn.cluster import SpectralClustering,DBSCAN,AgglomerativeClustering
+from sklearn.cluster import SpectralClustering,OPTICS,AgglomerativeClustering,MiniBatchKMeans
 from spotify_interactions import createPlaylist
 from model_fcns import dimReduce
 
@@ -23,11 +26,16 @@ import pandas as pd
 import seaborn as sns
 
 
-projectDown =True
+projectDown =False
 clusterData = True
 plot3D = True
 writePlaylists = False
-writeMaxPlaylists = True
+writeMaxPlaylists = False
+
+if plot3D:
+    nDims = 3
+else:
+    nDims = 2
 
 csv_folder = "playlist_csvs"
 csv_folder_out = "output_playlists"
@@ -39,19 +47,21 @@ fid_totalPool =  "/".join((model_folder,"totalPool.pkl"))
 
 ### TODO: add script to run through all csvs in folder.
 test_ex = "jul_2020_chance_encounters.csv"
-nPlaylists = 150#6
-nPlayExport = 5
-playExportInterval = 1#6
-crate_range = [6,7,9,10,11,12,13,15]#,11,12] #,12
+nPlaylists = 300#150#6
+nPlayExport = 6
+playExportInterval = 10#6
+crate_range = [1,2,3,4,5,6,7,9,10,11,12,13,15]#,11,12] #,12
+#crate_range = [9,10,11,12,13,15]#,11,12] #,12
 
-minMaxPlots = ["Danceability","Valence","Energy"]
+minMaxPlots = ["Acousticness","Danceability","Valence","Energy"]
     # Running index, probably inefficient.
 playlistVals = np.zeros((len(minMaxPlots),nPlaylists))
+clusterPos = np.zeros((nPlaylists,nDims))
 playlistMax = dict()
 playlistMin = dict()
-#playlistDance = np.zeros((nPlaylists,))
-#playlistValence = np.zeros((nPlaylists,))
-#playlistEnergy = np.zeros((nPlaylists,))
+nTrip = 0
+maxVals = np.zeros(len(minMaxPlots))
+minVals = np.ones(len(minMaxPlots))
 
 if projectDown:
     df_pool = pd.DataFrame()   
@@ -93,25 +103,24 @@ else:
 if clusterData:
     ## Clustering.
     #sc = SpectralClustering(n_clusters = nPlaylists,n_jobs=-1)
-    sc = AgglomerativeClustering(n_clusters = nPlaylists)
-    # sc = DBSCAN(n_jobs=-1)
+    #sc = AgglomerativeClustering(n_clusters = nPlaylists) # ward linkage
+    sc = MiniBatchKMeans(n_clusters = nPlaylists)
+    #sc = OPTICS(min_samples=100,n_jobs=-1)
     splitVals = sc.fit_predict(poolReduced)
     np.save(fid_clustering,splitVals)
+    # sns.histplot(splitVals,bins=nPlaylists)
 else:
     splitVals = np.load(fid_clustering+".npy")
 
 
-nPlaylistOut = np.unique(splitVals).size
-nTrip = 0
-maxVals = np.zeros(len(minMaxPlots))
-minVals = np.ones(len(minMaxPlots))
-
+## Write playlists out
+nPlaylistOut = np.min([np.unique(splitVals).size,nPlaylists])
 for ind in range(0,nPlaylistOut):
     idxTest = np.where(splitVals==ind)
     idxTest = idxTest[0]
     playlistOut = df_pool.iloc[idxTest]
-    
-
+    posSave = poolReduced[idxTest,:]    
+    clusterPos[ind,:] = np.mean(posSave,axis=0)
 
     for ind_plots,val in enumerate(minMaxPlots):
         playlistVals[ind_plots,ind] = playlistOut[val].mean(axis=0)
@@ -123,7 +132,7 @@ for ind in range(0,nPlaylistOut):
             minVals[ind_plots] = playlistVals[ind_plots,ind] 
             playlistMin[val] = playlistOut
         
-    playName = "playlist"+str(ind)+".csv"
+    playName = "playlist"+str(ind)+ " kMeans"+".csv"
     if nTrip < nPlayExport and writePlaylists and not ind % playExportInterval:
         nTrip = nTrip+1
         createPlaylist(playName,playlistOut)
@@ -131,42 +140,70 @@ for ind in range(0,nPlaylistOut):
 
 if writeMaxPlaylists:
     for val in minMaxPlots:
-        createPlaylist("Maximum "+val,playlistMax[val])
-        createPlaylist("Minimum "+val,playlistMin[val])
+        createPlaylist("Maximum "+val + " kMeans",playlistMax[val])
+        createPlaylist("Minimum "+val+ " kMeans",playlistMin[val])
 
+## Make plots
 #sns.histplot(playlistDance)
-
 if plot3D:
-    plotly.offline.plot({
-    "data": [
-        go.Scatter3d(    x=poolReduced[:,0],
+    
+    trace1 =go.Scatter3d(    x=poolReduced[:,0],
         y=poolReduced[:,1],z=poolReduced[:,2], mode='markers',#,
         marker=dict(
-            size=5,color=splitVals,line=dict(width=2,
+            size=5,color=splitVals,colorscale="Rainbow",line=dict(width=2,
                                              color='DarkSlateGrey')),
         hovertemplate =
         '<i>X</i>: %{x:.2f}<br />'+
         '<i>Y</i>: %{y:.2f}<br />'+
         '<i>Z</i>: %{z:.2f}<br />'+
-        '<i>Cluster</i>: %{marker.color:d}',)],
-    "layout": plotly.graph_objs.Layout(showlegend=False,
-        height=800,
-        width=800,
-    )
-    })
+        '<i>Cluster</i>: %{marker.color:d}',
+        )
+    trace2 = go.Scatter3d(    x=clusterPos[:,0],
+        y=clusterPos[:,1],z=clusterPos[:,2], mode='markers',#,
+        marker=dict(
+            size=5,color=splitVals,colorscale="Rainbow",line=dict(width=2,
+                                             color='DarkSlateGrey')),
+        hovertemplate =
+        '<i>X</i>: %{x:.2f}<br />'+
+        '<i>Y</i>: %{y:.2f}<br />'+
+        '<i>Z</i>: %{z:.2f}<br />'+
+        '<i>Cluster</i>: %{marker.color:d}',
+        )
+
 else:
-    plotly.offline.plot({
-    "data": [
-        go.Scatter(    x=poolReduced[:,0],
+    trace1 = go.Scatter(    x=poolReduced[:,0],
         y=poolReduced[:,1], mode='markers',#,
         marker=dict(
             size=5,color=splitVals),
         hovertemplate =
         '<i>X</i>: %{x:.2f}<br />'+
         '<i>Y</i>: %{y:.2f}<br />'+
-        '<i>Cluster</i>: %{marker.color:d}',)],
-    "layout": plotly.graph_objs.Layout(showlegend=False,
-        height=800,
-        width=800,
-    )
-    })
+        '<i>Cluster</i>: %{marker.color:d}',
+        color="Alphabet",opacity=0)
+    trace2 = go.Scatter(    x=clusterPos[:,0],
+        y=clusterPos[:,1], mode='markers',#,
+        marker=dict(
+            size=100,color=splitVals),
+        hovertemplate =
+        '<i>X</i>: %{x:.2f}<br />'+
+        '<i>Y</i>: %{y:.2f}<br />'+
+        '<i>Cluster</i>: %{marker.color:d}',
+        color="Alphabet")
+
+trace3 = go.Histogram(x=splitVals,xbins = dict(size=1),xaxis="x2",
+                  yaxis="y2")
+
+layout1 = go.Layout(
+    showlegend = False
+)
+fig1 = make_subplots(rows=1, cols=2,specs=[[{'type': 'surface'}, {'type': 'surface'}]])
+fig1.add_trace(trace1,row=1,col=1)
+fig1.add_trace(trace2,row=1,col=2)
+fig1.update_layout(layout1)
+fig1.show(renderer='browser')
+
+
+
+
+fig2 = go.Figure(data=trace3,layout=go.Layout(showlegend=False))
+fig2.show(renderer='browser')
