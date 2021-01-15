@@ -14,6 +14,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
+## Spotipy interactions
+# initSpotipy(scope): Initialize the spotipy handle with the scope provided. Note, you must use your own secretsLocal file.
 def initSpotipy(scope):
     CLIENT_ID = secretsLocal.clientID()
     CLIENT_SECRET = secretsLocal.clientSecret()
@@ -22,8 +24,106 @@ def initSpotipy(scope):
     return spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope,client_id=CLIENT_ID,client_secret=CLIENT_SECRET,redirect_uri=REDIRECT_URI))
 
 
+## ID acquisitions
+# getPlaylistID(sp,strName): With sp handle, get the first playlist that has a title that directly matches the provided string.
+def getPlaylistID(sp,strName):    
+    # search, must match.
+    currUser = sp.me()
+    userID = currUser["id"]
+
+    foundPlaylist = False
+    offset = 0
+    currVal = sp.current_user_playlists(limit=50, offset=offset)
+        
+    while not foundPlaylist:
+        currVal = sp.current_user_playlists(limit=50, offset=offset)
+        plList = currVal["items"]
+        tmp = next((item for item in plList if item["name"] == strName),None)
+        if not (tmp is None):
+            foundPlaylist = True
+            return tmp["id"]
+        else:
+            offset = offset +currVal["limit"]
+
+        if (currVal["next"] is None):
+            return -1
+
+# getPlaylistIDs(sp,strName): With sp handle, get all playlist IDs that have titles that have a provided substring.
+def getPlaylistIDs(sp,strName):        
+    currUser = sp.me()
+    userID = currUser["id"]
+
+    idsRet = []
+    offset = 0
+    currVal = sp.current_user_playlists(limit=50, offset=offset)
+    while not (currVal["next"] is None):
+        currVal = sp.current_user_playlists(limit=50, offset=offset)
+        plList = currVal["items"]
+
+        tmp = [item for item in plList if (strName in item["name"]) ]  
+        for elt in tmp:
+            idsRet.append(elt["id"])
+
+        offset = offset +currVal["limit"]
+
+    return idsRet
+
+# getTracksFromPlaylist(sp,plID,ret_track_info,ret_af):
+# With sp handle and playlist ID, return list with info. if ret_track_info is True, it will return the whole song structure,
+# otherwise it returns a list of track IDs. If ret_af is True it also returns the audio-features object for each track.
+def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
+    offset = 0
+    plHandle = sp.playlist_items(plID,offset = offset)
+    nTracks = plHandle["total"]
+    trackIds = []
+    #trackURIs = []
+    audioFeatures = []
+    audioAnalysis = []
+    tracksSave = []
+    ret_track_info = ret_track_info
+    ret_af = ret_af
+    nextUp = 1
+    while not (nextUp is None):
+        if nextUp != 1:
+            offset = offset + plHandle["limit"]
+        # save tracks.
+        plHandle = sp.playlist_items(plID,offset = offset) 
+        tracksNew = [item["track"] for item in plHandle["items"]]
+        tracksSave = tracksSave + tracksNew
+        
+        newIDs = [item["id"]for item in tracksNew]
+        trackIds = trackIds + newIDs
+
+        if ret_af:
+            audioFeatures = audioFeatures + sp.audio_features(newIDs)
+        nextUp = plHandle["next"]
+
+    if ret_track_info:
+        trackOut = tracksSave
+    else:
+        trackOut = trackIds#trackURIs
+    if ret_af:
+        return trackOut,afOut
+    else:
+        return trackOut
+
+
+''' 
+Playlist data analysis stuff
+'''
+def getTopGenres(df_in):
+    #this is a stub right now.    
+    return []
+
+
+'''
+## Playlist management
+'''
+# createPlaylist(sp, playlistName,objIn, incAnalysis): Create playlist with playlistName for the currently authorized user.
+#    objIn can be either a list of track IDs or a dataframe with the unified structure this imports into. incAnalysis is only
+#    a valid option if the object in is a dataframe, and includes some analysis in the playlist description.
+
 def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
-    #sp = initSpotipy("playlist-modify-private")
     
     currUser = sp.me()
     userID = currUser["id"]
@@ -88,94 +188,33 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
                 sp.playlist_add_items(playID, idsProc[0:])
                 midBreak = True
 
+# removeSavedTracks(sp,trackIDs): Given a list of track IDs, return the indices of tracks that haven't been saved into the users library yet.
+def removeSavedTracks(sp,trackIDs):
+    divVal = 30 #arbitrary, must be 50 or less.
+    numelUnique = len(trackIDs)
+    numCalls = int(np.ceil(numelUnique/divVal))
+    # Eventually functionize this.
+    tmp = []
+    songsLiked = []
 
-
-def getTopGenres(df_in):
-    #this is a stub right now.    
-    return []
-
-def getPlaylistID(sp,strName):    
-    # search, must match.
-    currUser = sp.me()
-    userID = currUser["id"]
-
-    foundPlaylist = False
-    offset = 0
-    currVal = sp.current_user_playlists(limit=50, offset=offset)
-        
-    while not foundPlaylist:
-        currVal = sp.current_user_playlists(limit=50, offset=offset)
-        plList = currVal["items"]
-        tmp = next((item for item in plList if item["name"] == strName),None)
-        if not (tmp is None):
-            foundPlaylist = True
-            return tmp["id"]
+    for ind in range(numCalls):
+        if ind < (numCalls-1):
+            tmp = trackIDs[(0+ind*divVal):(divVal+ind*divVal)]
+            # print("BREAKBREAK")#
         else:
-            offset = offset +currVal["limit"]
+            tmp = trackIDs[(0+ind*divVal):]
 
-        if (currVal["next"] is None):
-            return -1
+        songsLiked = songsLiked + sp.current_user_saved_tracks_contains(tracks=tmp)
 
-def getPlaylistIDs(sp,strName):    
-    
-    currUser = sp.me()
-    userID = currUser["id"]
-
-    idsRet = []
-    offset = 0
-    currVal = sp.current_user_playlists(limit=50, offset=offset)
-    while not (currVal["next"] is None):
-        currVal = sp.current_user_playlists(limit=50, offset=offset)
-        plList = currVal["items"]
-
-        tmp = [item for item in plList if (strName in item["name"]) ]  
-        for elt in tmp:
-            idsRet.append(elt["id"])
-
-        offset = offset +currVal["limit"]
-
-    return idsRet
+    songsUnliked = [not x for x in songsLiked]
+    indOut = np.where(songsUnliked)
+    return indOut[0]
 
 
-def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
-    offset = 0
-    plHandle = sp.playlist_items(plID,offset = offset)
-    nTracks = plHandle["total"]
-    trackIds = []
-    #trackURIs = []
-    audioFeatures = []
-    audioAnalysis = []
-    tracksSave = []
-    ret_track_info = ret_track_info
-    ret_af = ret_af
-    nextUp = 1
-    while not (nextUp is None):
-        if nextUp != 1:
-            offset = offset + plHandle["limit"]
-        # save tracks.
-        plHandle = sp.playlist_items(plID,offset = offset) 
-        tracksNew = [item["track"] for item in plHandle["items"]]
-        tracksSave = tracksSave + tracksNew
-        
-        newIDs = [item["id"]for item in tracksNew]
-        trackIds = trackIds + newIDs
-
-        if ret_af:
-            audioFeatures = audioFeatures + sp.audio_features(newIDs)
-        nextUp = plHandle["next"]
-
-    if ret_af:
-        afOut = audioFeatures
-    else:
-        afOut = []
-    if ret_track_info:
-        trackOut = tracksSave
-    else:
-        trackOut = trackIds#trackURIs
-
-    return (trackOut,afOut)
-
-
+'''
+Dataframe/spotify object interactions.
+'''
+# tracksToDF(tracks,af): convert the tracks and af objects spotipy produces to a unified dataframe.
 def tracksToDF(tracks,af):
     # Currently, putting off the most annoying parts (indexing to get the artist name)
     
@@ -207,36 +246,23 @@ def tracksToDF(tracks,af):
     }
     return pd.DataFrame.from_dict(trackDict)
 
-def saveTrackDF(df,filepath):
-    if isinstance(df["Artist"][0],list):
-        df["Artist"] = df["Artist"].apply(lambda x:",".join(x))
-        df["Artist URI"] = df["Artist URI"].apply(lambda x:",".join(x))
-    df.to_csv(filepath)
 
-def savePlaylistToCSV(plName,filepath):
-    sp = initSpotipy("playlist-read-private")
+'''
+Exporting to CSV
+'''
+def saveTrackDF(df,filepath):
+    dfTmp = df
+    if isinstance(df["Artist"][0],list):
+        # Note: Here there may be a smarter delimiter between artists and artist URIS, 
+        dfTmp["Artist"] = dfTmp["Artist"].apply(lambda x:",".join(x))
+        dfTmp["Artist URI"] = dfTmp["Artist URI"].apply(lambda x:",".join(x))
+    dfTmp.to_csv(filepath)
+
+# Exporting playlist info to CSV
+def savePlaylistToCSV(sp,plName,filepath):
     plID = getPlaylistID(plName)
     tracksSave,audioFeatures = getTracksFromPlaylist(sp,plID)
     df_save = tracksToDF(tracksSave,audioFeatures)
     saveTrackDF(df_save,filepath)
     
-def removeSavedTracks(sp,trackIDs):
-    divVal = 30 #arbitrary, must be 50 or less.
-    numelUnique = len(trackIDs)
-    numCalls = int(np.ceil(numelUnique/divVal))
-    # Eventually functionize this.
-    tmp = []
-    songsLiked = []
 
-    for ind in range(numCalls):
-        if ind < (numCalls-1):
-            tmp = trackIDs[(0+ind*divVal):(divVal+ind*divVal)]
-            # print("BREAKBREAK")#
-        else:
-            tmp = trackIDs[(0+ind*divVal):]
-
-        songsLiked = songsLiked + sp.current_user_saved_tracks_contains(tracks=tmp)
-
-    songsUnliked = [not x for x in songsLiked]
-    indOut = np.where(songsUnliked)
-    return indOut[0]
