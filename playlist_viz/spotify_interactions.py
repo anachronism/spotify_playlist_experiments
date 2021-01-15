@@ -9,24 +9,46 @@ Created on Wed Jan 13 19:09:45 2021
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-import secretsLocal # NOTE: Must create this file yourself. Make functions that return the id and secret.
+import secretsLocal ### NOTE: Must create this file yourself. Make functions that return the id and secret.
 import pandas as pd 
+import numpy as np
 from datetime import datetime
 
-def initSpotipy():
+def initSpotipy(scope):
     CLIENT_ID = secretsLocal.clientID()
     CLIENT_SECRET = secretsLocal.clientSecret()
     REDIRECT_URI = "http://localhost:8080" # NOTE:Must add this to your spotify app suitable links. 
-    scope="playlist-modify-private"
+    #scope=
     
     
     return spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope,client_id=CLIENT_ID,client_secret=CLIENT_SECRET,redirect_uri=REDIRECT_URI))
 
+def createPlaylist_ids(sp,playlistName,ids):
+    ### TODO: when more awake, combine with createPlaylist lol. 
+    currUser = sp.me()
+    userID = currUser["id"]
+
+    now = datetime.now()
+    dtString=now.strftime("%m/%d/%Y %H:%m:%S")
+    playDescr = "Created "+ dtString
+    newPlay = sp.user_playlist_create(userID,playlistName,public=False,description=playDescr)
+    playID = newPlay["id"]
+
+    idsProc = ids
+    midBreak= False    
+    while len(idsProc) and (not midBreak): 
+        if len(idsProc) > 100:
+            sp.playlist_add_items(playID, idsProc[0:99])
+            idsProc = idsProc[100:]
+           # print("here0")
+
+        else:
+            sp.playlist_add_items(playID, idsProc[0:])
+            print("here")
+            midBreak = True
 
 def createPlaylist(playlistName,df):
-        
-    
-    sp = initSpotipy()
+    sp = initSpotipy("playlist-modify-private")
 
     #Generate relevant means (Practically should just do the mean over the whole DF and get the specific thing but w/e)
     tempoMean =  df["Tempo"].mean(axis=0)
@@ -55,8 +77,7 @@ def createPlaylist(playlistName,df):
     playID = newPlay["id"]
     
     df_ids = df["Track URI"]
-    midBreak= False
-    
+    midBreak= False    
     while (not df_ids.empty) and (not midBreak): 
         if df_ids.size > 100:
             sp.playlist_add_items(playID, df_ids.iloc[0:99])
@@ -77,7 +98,8 @@ def getPlaylistID(sp,strName):
 
     foundPlaylist = False
     offset = 0
-   
+    currVal = sp.current_user_playlists(limit=50, offset=offset)
+        
     while not foundPlaylist:
         currVal = sp.current_user_playlists(limit=50, offset=offset)
         plList = currVal["items"]
@@ -86,35 +108,76 @@ def getPlaylistID(sp,strName):
             foundPlaylist = True
             return tmp["id"]
         else:
-            offset = offset +plList["limit"]
+            offset = offset +currVal["limit"]
 
+        if (currVal["next"] is None):
+            return -1
 
-def getTracksFromPlaylist(sp,plName):
-    idUse = getPlaylistID(sp,plName)
+# get all playlists that match a specific name TODO: make this having matching subscript.
+def getPlaylistIDs(sp,strName):    
+    
+    currUser = sp.me()
+    userID = currUser["id"]
+
+    idsRet = []
     offset = 0
-    plHandle = sp.playlist_items(idUse,offset = offset)
+    currVal = sp.current_user_playlists(limit=50, offset=offset)
+    while not (currVal["next"] is None):
+        currVal = sp.current_user_playlists(limit=50, offset=offset)
+        plList = currVal["items"]
+
+        tmp = [item for item in plList if (strName in item["name"]) ]  
+        for elt in tmp:
+            idsRet.append(elt["id"])
+
+        offset = offset +currVal["limit"]
+
+    return idsRet
+
+
+def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
+    offset = 0
+    plHandle = sp.playlist_items(plID,offset = offset)
     nTracks = plHandle["total"]
     trackIds = []
+    #trackURIs = []
     audioFeatures = []
     audioAnalysis = []
     tracksSave = []
-
-    while not( plHandle["next"] is None):
+    ret_track_info = ret_track_info
+    ret_af = ret_af
+    nextUp = 1
+    while not (nextUp is None):
+        if nextUp != 1:
+            offset = offset + plHandle["limit"]
         # save tracks.
-        plHandle = sp.playlist_items(idUse,offset = offset) 
+        plHandle = sp.playlist_items(plID,offset = offset) 
         tracksNew = [item["track"] for item in plHandle["items"]]
         tracksSave = tracksSave + tracksNew
+        
         newIDs = [item["id"]for item in tracksNew]
-
-
         trackIds = trackIds + newIDs
-        audioFeatures = audioFeatures + sp.audio_features(newIDs)
+
+       # newURIs = [item["uri"]for item in tracksNew]
+       # trackURIs=trackURIs + newURIs
+        if ret_af:
+            audioFeatures = audioFeatures + sp.audio_features(newIDs)
         # for idx in newIDs:
         #     audioAnalysis.append(sp.audio_analysis( idx))
         #     print(idx)
+        nextUp = plHandle["next"]
 
-        offset = offset + plHandle["limit"]
-    return (tracksSave,audioFeatures)
+    if ret_af:
+        afOut = audioFeatures
+    else:
+        afOut = []
+    if ret_track_info:
+        trackOut = tracksSave
+    else:
+        trackOut = trackIds#trackURIs
+
+    return (trackOut,afOut)
+
 
 def tracksToDF(tracks,af):
     # Currently, putting off the most annoying parts (indexing to get the artist name)
@@ -143,10 +206,29 @@ def saveTrackDF(df,filepath):
     df.to_csv(filepath)
 
 def savePlaylistToCSV(plName,filepath):
-    sp = initSpotipy()
-    tracksSave,audioFeatures = getTracksFromPlaylist(sp,plName)
+    sp = initSpotipy("playlist-read-private")
+    plID = getPlaylistID(plName)
+    tracksSave,audioFeatures = getTracksFromPlaylist(sp,plID)
     df_save = tracksToDF(tracksSave,audioFeatures)
     saveTrackDF(df_save,filepath)
     
+def removeSavedTracks(sp,trackIDs):
+    divVal = 30 #arbitrary, must be 50 or less.
+    numelUnique = len(trackIDs)
+    numCalls = int(np.ceil(numelUnique/divVal))
+    # Eventually functionize this.
+    tmp = []
+    songsLiked = []
 
+    for ind in range(numCalls):
+        if ind < (numCalls-1):
+            tmp = trackIDs[(0+ind*divVal):(divVal+ind*divVal)]
+            # print("BREAKBREAK")#
+        else:
+            tmp = trackIDs[(0+ind*divVal):]
 
+        songsLiked = songsLiked + sp.current_user_saved_tracks_contains(tracks=tmp)
+
+    songsUnliked = [not x for x in songsLiked]
+    indOut = np.where(songsUnliked)
+    return indOut[0]
