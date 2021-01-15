@@ -8,8 +8,9 @@ playlistTitle = "Combined DW for the Week of " + dtString
 playlistSearch = "Discover Weekly"
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")# 
-dw_ids = si.getPlaylistIDs(sp,playlistSearch)
 
+
+dw_ids = si.getPlaylistIDs(sp,playlistSearch)
 
 trackIds = []
 for playID in dw_ids:
@@ -30,8 +31,4 @@ indOut = si.removeSavedTracks(sp,trackIdsUnique)
 tracksOut = [trackIdsUnique[idx] for idx in indOut]
 print("Num tracks in playlist: "+str(len(tracksOut)))
 #### TODO: understand why this is losing some of the tracks.
-si.createPlaylist_ids(sp,playlistTitle,tracksOut)
-
-
-#sp.current_user_saved_tracks_contains(tracks=
-#newTracks = si.removeSavedTracks(sp,trackIds)
+si.createPlaylist(sp,playlistTitle,tracksOut)

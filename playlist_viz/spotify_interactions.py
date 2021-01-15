@@ -23,76 +23,83 @@ def initSpotipy(scope):
     
     return spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope,client_id=CLIENT_ID,client_secret=CLIENT_SECRET,redirect_uri=REDIRECT_URI))
 
-def createPlaylist_ids(sp,playlistName,ids):
-    ### TODO: when more awake, combine with createPlaylist lol. 
-    currUser = sp.me()
-    userID = currUser["id"]
 
-    now = datetime.now()
-    dtString=now.strftime("%m/%d/%Y %H:%m:%S")
-    playDescr = "Created "+ dtString
-    newPlay = sp.user_playlist_create(userID,playlistName,public=False,description=playDescr)
-    playID = newPlay["id"]
-
-    idsProc = ids
-    midBreak= False    
-    while len(idsProc) and (not midBreak): 
-        if len(idsProc) > 100:
-            sp.playlist_add_items(playID, idsProc[0:99])
-            idsProc = idsProc[100:]
-           # print("here0")
-
-        else:
-            sp.playlist_add_items(playID, idsProc[0:])
-            print("here")
-            midBreak = True
-
-def createPlaylist(playlistName,df):
-    sp = initSpotipy("playlist-modify-private")
-
-    #Generate relevant means (Practically should just do the mean over the whole DF and get the specific thing but w/e)
-    tempoMean =  df["Tempo"].mean(axis=0)
-    danceMean =  df["Danceability"].mean(axis=0)
-    energyMean =  df["Energy"].mean(axis=0)
-    accousticMean =  df["Acousticness"].mean(axis=0)
-    liveMean =  df["Liveness"].mean(axis=0)
-    valenceMean =  df["Valence"].mean(axis=0)
-    instrMean =  df["Instrumentalness"].mean(axis=0)
+def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
+    #sp = initSpotipy("playlist-modify-private")
     
     currUser = sp.me()
     userID = currUser["id"]
     now = datetime.now()
     dtString=now.strftime("%m/%d/%Y %H:%m:%S")
-    str0 = "autogen playlist: "+ dtString +(" || Mean Tempo: %0.2f" %tempoMean)  
-    str1 =  (" || Mean Danceability: %0.2f" %danceMean) 
-    str2 =  (" || Mean Energy: %0.2f" %energyMean)  
-    str3=  (" || Mean Accoustic: %0.2f" %accousticMean)   
-    str4=   (" || Mean Liveness: %0.2f" %liveMean)  
-    str5 =  (" || Mean Valence: %0.2f" %valenceMean)  
-    str6 = (" || Mean Instrumentalness: %0.2f"%instrMean)
 
-    strDescription = str0+str1+str2+str3+str4+str5 +str6   
+    if isinstance(objIn,pd.DataFrame):
+        dfIn = True
+        df = objIn
+        analyzeAf = incAnalysis
+    else:
+        dfIn = False
+        analyzeAf = False
+
+
+    if analyzeAf:
+        #Generate relevant means (Practically should just do the mean over the whole DF and get the specific thing but w/e)
+        tempoMean =  df["Tempo"].mean(axis=0)
+        danceMean =  df["Danceability"].mean(axis=0)
+        energyMean =  df["Energy"].mean(axis=0)
+        accousticMean =  df["Acousticness"].mean(axis=0)
+        liveMean =  df["Liveness"].mean(axis=0)
+        valenceMean =  df["Valence"].mean(axis=0)
+        instrMean =  df["Instrumentalness"].mean(axis=0)
+    
+        str0 = "autogen playlist: "+ dtString +(" || Mean Tempo: %0.2f" %tempoMean)  
+        str1 =  (" || Mean Danceability: %0.2f" %danceMean) 
+        str2 =  (" || Mean Energy: %0.2f" %energyMean)  
+        str3=  (" || Mean Accoustic: %0.2f" %accousticMean)   
+        str4=   (" || Mean Liveness: %0.2f" %liveMean)  
+        str5 =  (" || Mean Valence: %0.2f" %valenceMean)  
+        str6 = (" || Mean Instrumentalness: %0.2f"%instrMean)
+        strDescription = str0+str1+str2+str3+str4+str5 +str6   
+    else: #Assuming for the moment else is a list of IDs
+        strDescription = "Created "+ dtString
                     
     newPlay = sp.user_playlist_create(userID,playlistName,public=False,description=strDescription)
-    playID = newPlay["id"]
     
-    df_ids = df["Track URI"]
+    playID = newPlay["id"]    
     midBreak= False    
-    while (not df_ids.empty) and (not midBreak): 
-        if df_ids.size > 100:
-            sp.playlist_add_items(playID, df_ids.iloc[0:99])
-            df_ids = df_ids.iloc[100:]
-        else:
-            sp.playlist_add_items(playID, df_ids.iloc[0:])
-            midBreak = True
-    
+
+    if dfIn:
+
+        df_ids = df["Track URI"]
+
+        while (not df_ids.empty) and (not midBreak): 
+            if df_ids.size > 100:
+                sp.playlist_add_items(playID, df_ids.iloc[0:99])
+                df_ids = df_ids.iloc[100:]
+            else:
+                sp.playlist_add_items(playID, df_ids.iloc[0:])
+                midBreak = True
+    else: #Assuming list of ids, or names, or spotify URIs 
+        idsProc = objIn
+        midBreak= False    
+        while len(idsProc) and (not midBreak): 
+            if len(idsProc) > 100:
+                sp.playlist_add_items(playID, idsProc[0:99])
+                idsProc = idsProc[100:]
+               # print("here0")
+
+            else:
+                sp.playlist_add_items(playID, idsProc[0:])
+                midBreak = True
+
+
+
 def getTopGenres(df_in):
     #this is a stub right now.
     
     return []
 
 def getPlaylistID(sp,strName):    
-    
+    # search, must match.
     currUser = sp.me()
     userID = currUser["id"]
 
@@ -113,7 +120,6 @@ def getPlaylistID(sp,strName):
         if (currVal["next"] is None):
             return -1
 
-# get all playlists that match a specific name TODO: make this having matching subscript.
 def getPlaylistIDs(sp,strName):    
     
     currUser = sp.me()

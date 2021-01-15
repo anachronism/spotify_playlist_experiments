@@ -18,7 +18,7 @@ import plotly.graph_objects as go
 from plotly import tools 
 
 from sklearn.cluster import SpectralClustering,OPTICS,AgglomerativeClustering,MiniBatchKMeans
-from spotify_interactions import createPlaylist
+from spotify_interactions import createPlaylist,initSpotipy
 from model_fcns import dimReduce
 
 import numpy as np
@@ -29,8 +29,11 @@ import seaborn as sns
 projectDown =False
 clusterData = True
 plot3D = True
-writePlaylists = False
-writeMaxPlaylists = False
+writePlaylists = True
+writeMaxPlaylists = True
+
+if writePlaylists or writeMaxPlaylists:
+    sp = initSpotipy("playlist-modify-private")
 
 if plot3D:
     nDims = 3
@@ -135,13 +138,13 @@ for ind in range(0,nPlaylistOut):
     playName = "playlist"+str(ind)+ " kMeans"+".csv"
     if nTrip < nPlayExport and writePlaylists and not ind % playExportInterval:
         nTrip = nTrip+1
-        createPlaylist(playName,playlistOut)
+        createPlaylist(sp,playName,playlistOut,True)
     playlistOut.to_csv("/".join((csv_folder_out,playName)))
 
 if writeMaxPlaylists:
     for val in minMaxPlots:
-        createPlaylist("Maximum "+val + " kMeans",playlistMax[val])
-        createPlaylist("Minimum "+val+ " kMeans",playlistMin[val])
+        createPlaylist(sp,"Maximum "+val + " kMeans",playlistMax[val],True)
+        createPlaylist(sp,"Minimum "+val+ " kMeans",playlistMin[val],True)
 
 ## Make plots
 #sns.histplot(playlistDance)
