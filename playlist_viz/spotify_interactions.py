@@ -60,7 +60,7 @@ def getPlaylistIDs(sp,strName):
         currVal = sp.current_user_playlists(limit=50, offset=offset)
         plList = currVal["items"]
 
-        tmp = [item for item in plList if (strName in item["name"]) ]  
+        tmp = [item for item in plList if (strName.lower() in item["name"].lower()) ]  
         for elt in tmp:
             idsRet.append(elt["id"])
 
@@ -103,7 +103,7 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
     else:
         trackOut = trackIds#trackURIs
     if ret_af:
-        return trackOut,afOut
+        return trackOut,audioFeatures
     else:
         return trackOut
 
@@ -166,10 +166,10 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
     midBreak= False    
 
     if dfIn:
-        df_ids = df["Track URI"]
+        df_ids = df["Song URI"]
         while (not df_ids.empty) and (not midBreak): 
             if df_ids.size > 100:
-                sp.playlist_add_items(playID, df_ids.iloc[0:99])
+                sp.playlist_add_items(playID, df_ids.iloc[0:100])
                 df_ids = df_ids.iloc[100:]
             else:
                 sp.playlist_add_items(playID, df_ids.iloc[0:])
@@ -180,11 +180,13 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
         midBreak= False    
         while len(idsProc) and (not midBreak): 
             if len(idsProc) > 100:
-                sp.playlist_add_items(playID, idsProc[0:99])
+                print(len(idsProc[0:100]))
+                sp.playlist_add_items(playID, idsProc[0:100])
                 idsProc = idsProc[100:]
                # print("here0")
 
             else:
+                print(lenIdsProc)
                 sp.playlist_add_items(playID, idsProc[0:])
                 midBreak = True
 
@@ -214,8 +216,9 @@ def removeSavedTracks(sp,trackIDs):
 '''
 Dataframe/spotify object interactions.
 '''
+### TODO: Give option to return artist list.
 # tracksToDF(tracks,af): convert the tracks and af objects spotipy produces to a unified dataframe.
-def tracksToDF(tracks,af):
+def tracksToDF(tracks,af,artistList = False):
     # Currently, putting off the most annoying parts (indexing to get the artist name)
     
     artistObjs = [x["album"]["artists"] for x in tracks]
@@ -224,6 +227,10 @@ def tracksToDF(tracks,af):
     for idx,elt in enumerate(artistObjs):
         artistName.append( [x["name"] for x in elt])
         artistURI.append([x["uri"] for x in elt])
+
+    if artistList:
+        artistName = [','.join(x) for x in artistName]
+        artistURI =  [','.join(x) for x in artistURI]
 
     trackDict = {
         "Album Name":  [x["album"]["name"] for x in tracks],

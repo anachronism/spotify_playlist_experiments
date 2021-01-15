@@ -4,6 +4,7 @@ Created on Tue Jan 12 18:46:12 2021
 
 @author: Max
 TODO:
+    Gate the songs used by duration.
     Get cluster means, make it so that the random gen selects a number of clusters far from each other.
     proper interfacing with the spotify API, init side.
     EDA on the subdivided groups.
@@ -26,8 +27,9 @@ import pandas as pd
 import seaborn as sns
 
 
+usePklInput = True
 projectDown =False
-clusterData = True
+clusterData = False
 plot3D = True
 writePlaylists = True
 writeMaxPlaylists = True
@@ -47,10 +49,11 @@ model_folder = "pkl_vals"
 fid_poolRed = "/".join((model_folder,"poolReduced"))
 fid_clustering = "/".join((model_folder,"clusters"))
 fid_totalPool =  "/".join((model_folder,"totalPool.pkl"))
+fid_inputPkl = "/".join((model_folder,"crates_compiled.pkl"))
 
 ### TODO: add script to run through all csvs in folder.
-test_ex = "jul_2020_chance_encounters.csv"
-nPlaylists = 300#150#6
+#test_ex = "jul_2020_chance_encounters.csv"
+nPlaylists = 400#150#6
 nPlayExport = 6
 playExportInterval = 10#6
 crate_range = [1,2,3,4,5,6,7,9,10,11,12,13,15]#,11,12] #,12
@@ -69,16 +72,19 @@ minVals = np.ones(len(minMaxPlots))
 if projectDown:
     df_pool = pd.DataFrame()   
    
-    for ind in crate_range:
-        test_str = "_crate_"+str(ind)+"_.csv"
-        fid_pool = "/".join((csv_folder,test_str))
-        df_tmp = pd.read_csv(fid_pool)
-        df_pool = df_pool.append(df_tmp)
-    
-    fid_ex = "/".join((csv_folder,test_ex))
-    #df_pool = pd.read_csv(fid_pool)
+    if usePklInput:
+        df_pool = pd.read_pickle(fid_inputPkl)
+    else:
+        for ind in crate_range:
+            test_str = "_crate_"+str(ind)+"_.csv"
+            fid_pool = "/".join((csv_folder,test_str))
+            df_tmp = pd.read_csv(fid_pool)
+            df_pool = df_pool.append(df_tmp)
+        
+ #       fid_ex = "/".join((csv_folder,test_ex))
+        #df_pool = pd.read_csv(fid_pool)
     df_pool = df_pool.sample(frac=1)
-    df_ex = pd.read_csv(fid_ex)
+#    df_ex = pd.read_csv(fid_ex)
     print(df_pool.head())
     
     
