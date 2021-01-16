@@ -10,12 +10,15 @@ TODO:
     See if i can incorporate timbre patterns (12 dim vectors) (look into, see if can PCA down before later reduction).
 """
 #import plotly.express as px
+
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from plotly import tools 
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+from dash.dependencies import Input, Output
+
 from dash_components import generateTable
 
 
@@ -221,9 +224,11 @@ else:
         '<i>Cluster</i>: %{marker.color:d}',
         color="Alphabet")
 
-trace3 = go.Histogram(x=splitVals,xbins = dict(size=1),xaxis="x2",
-                  yaxis="y2")
+#trace3 = go.Histogram(x=splitVals,xbins = dict(size=1),xaxis="x2",
+ #                 yaxis="y2")
 
+trackCounts = np.bincount(splitVals)
+trace3 = go.Histogram(x=trackCounts)
 
 layout1 = go.Layout(
     scene1 = dict(
@@ -243,6 +248,8 @@ layout1 = go.Layout(
 
 layout2 = go.Layout(
     showlegend = False,
+    xaxis_title="Song Count",
+    yaxis_title="Number Of Playlists",
     width=500
 )
 
@@ -250,37 +257,90 @@ layout2 = go.Layout(
 markdown_text = '''
 ### Track Count:
 '''
+keys = ["Title","Artist","Album Name", "Tempo", "Key"]
+df_display = playlistOut[keys]
 
 
-fig1 = make_subplots(rows=1, cols=2,specs=[[{'type': 'surface'}, {'type': 'surface'}]])
-fig1.add_trace(trace1,row=1,col=1)
-fig1.add_trace(trace2,row=1,col=2)
+fig1 = make_subplots(rows=1, cols=2,specs=[[{'type': 'surface'}, {'type': 'bar'}]])#
+fig1.add_trace(trace1,row=1,col=1)#
+fig1.add_trace(trace3,row=1,col=2)
 fig1.update_layout(layout1)
-fig2 = go.Figure(data=trace3,layout=layout2)
+
+
+#fig1 = go.Figure(data=trace1,layout=layout1)
+fig2 = go.Figure(data=trace2,layout=layout1)
+#fig3 = go.Figure(data=trace3,layout=layout2)
 
 #fig1.show(renderer='browser')
-
-## Dash experimentation
-#external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-#external_stylesheets=external_stylesheets
-app = dash.Dash(__name__ )
+varTest = 0
+print("test" + str(varTest))
+sliderNotches = range(nPlaylists)
+sliderNotches = sliderNotches[0::20]
+## Dash experimentation#
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']#
+app = dash.Dash(__name__ ,external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(children=[
-    html.H1(children='Hello Dash'),
-    html.Div(children='''
-        Dash: A web application framework for Python.
-    '''),
+    html.H1(children="Max's Crate Visualization"),
+    html.Label("3d scatterplot of songs, tvne dim reduction"),
     dcc.Graph(
-        id='scatters',
+        id='scatterAll',
         figure=fig1
     ),
-    dcc.Markdown(children=markdown_text)
+    html.Br(),
+
+    dcc.Markdown(children=markdown_text),
     dcc.Graph(
-        id='hist',
+        id='scatterSel',
         figure=fig2
     ),
-    generateTable(playlistOut)
+    dcc.Slider(
+        id='nodeSlider',
+        min=0,
+        max=sliderNotches[-1],
+        value=0,
+        marks={str(ind): str(ind) for ind in sliderNotches},
+        step=None
+    ),
+    generateTable(df_display,max_rows=30)
 ])
+
+
+@app.callback(
+    Output('scatterSel', 'figure'),
+    Input('nodeSlider', 'value'))
+def update_figure(nodePlot):
+    pointsScatter = clusterPoints[nodePlot]
+    indsColor = clusterInds[nodePlot]
+    traceUse = go.Scatter3d( x=pointsScatter[:,0],
+        y=pointsScatter[:,1],z=pointsScatter[:,2], mode='markers',#,
+        marker=dict(
+            size=5,color=indsColor,colorscale="Rainbow",line=dict(width=2,
+                                             color='DarkSlateGrey')),
+        hovertemplate =
+        '<i>X</i>: %{x:.2f}<br />'+
+        '<i>Y</i>: %{y:.2f}<br />'+
+        '<i>Z</i>: %{z:.2f}<br />'+
+        '<i>Cluster</i>: %{marker.color:d}',
+        )
+    
+    layoutUse = go.Layout(
+        scene1 = dict(
+            xaxis = dict(nticks=4, range=[-40,40],),
+            yaxis = dict(nticks=4, range=[-40,40],),
+            zaxis = dict(nticks=4, range=[-40,40],),
+        ),
+        scene2 = dict(
+            xaxis = dict(nticks=4, range=[-40,40],),
+            yaxis = dict(nticks=4, range=[-40,40],),
+            zaxis = dict(nticks=4, range=[-40,40],),
+        ),
+        width=1000,
+        margin=dict(r=10, l=10, b=10, t=10),showlegend=False
+    )
+    fig = go.Figure(data=traceUse,layout=layoutUse)
+
+    return fig
 
 app.run_server(debug=True)
 
