@@ -247,6 +247,11 @@ layout2 = go.Layout(
 )
 
 
+markdown_text = '''
+### Track Count:
+'''
+
+
 fig1 = make_subplots(rows=1, cols=2,specs=[[{'type': 'surface'}, {'type': 'surface'}]])
 fig1.add_trace(trace1,row=1,col=1)
 fig1.add_trace(trace2,row=1,col=2)
@@ -269,6 +274,7 @@ app.layout = html.Div(children=[
         id='scatters',
         figure=fig1
     ),
+    dcc.Markdown(children=markdown_text)
     dcc.Graph(
         id='hist',
         figure=fig2
