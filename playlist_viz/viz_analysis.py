@@ -4,7 +4,6 @@ Created on Tue Jan 12 18:46:12 2021
 
 @author: Max
 TODO:
-    Gate the songs used by duration.
     EDA on the subdivided groups.
     Proper Investigation on the different dimensionality reduction techniques.
     Look at genre groupings.
@@ -14,6 +13,11 @@ TODO:
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from plotly import tools 
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash_components import generateTable
+
 
 from sklearn.cluster import SpectralClustering,OPTICS,AgglomerativeClustering,MiniBatchKMeans
 from spotify_interactions import createPlaylist,initSpotipy
@@ -26,11 +30,13 @@ import seaborn as sns
 
 
 usePklInput = True
-projectDown =True
-clusterData = True
+projectDown =False
+clusterData = False
 plot3D = True
-writePlaylists = True
-writeMaxPlaylists = True
+writePlaylists = False
+writeMaxPlaylists = False
+
+dashPlot = True
 
 if writePlaylists or writeMaxPlaylists:
     sp = initSpotipy("playlist-modify-private")
@@ -168,6 +174,7 @@ if writeMaxPlaylists:
         createPlaylist(sp,"Minimum "+val+ " kMeans",playlistMin[val],True)
 
 ## Make plots
+######################### The actual Vis part.
 #sns.histplot(playlistDance)
 if plot3D:
     
@@ -244,13 +251,33 @@ fig1 = make_subplots(rows=1, cols=2,specs=[[{'type': 'surface'}, {'type': 'surfa
 fig1.add_trace(trace1,row=1,col=1)
 fig1.add_trace(trace2,row=1,col=2)
 fig1.update_layout(layout1)
-fig1.show(renderer='browser')
-
-
-
-
 fig2 = go.Figure(data=trace3,layout=layout2)
-fig2.show(renderer='browser')
+
+#fig1.show(renderer='browser')
+
+## Dash experimentation
+#external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+#external_stylesheets=external_stylesheets
+app = dash.Dash(__name__ )
+
+app.layout = html.Div(children=[
+    html.H1(children='Hello Dash'),
+    html.Div(children='''
+        Dash: A web application framework for Python.
+    '''),
+    dcc.Graph(
+        id='scatters',
+        figure=fig1
+    ),
+    dcc.Graph(
+        id='hist',
+        figure=fig2
+    ),
+    generateTable(playlistOut)
+])
+
+app.run_server(debug=True)
+
 
 
 

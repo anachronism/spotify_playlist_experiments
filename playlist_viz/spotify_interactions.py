@@ -33,7 +33,7 @@ def getPlaylistID(sp,strName):
 
     foundPlaylist = False
     offset = 0
-    currVal = sp.current_user_playlists(limit=50, offset=offset)
+   # currVal = sp.current_user_playlists(limit=50, offset=offset)
         
     while not foundPlaylist:
         currVal = sp.current_user_playlists(limit=50, offset=offset)
