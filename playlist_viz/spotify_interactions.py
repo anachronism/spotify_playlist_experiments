@@ -268,11 +268,12 @@ def tracksToDF(tracks,af,artistList = False):
         artistURI =  [','.join(x) for x in artistURI]
 
     trackDict = {
-        "Album Name":  [x["album"]["name"] for x in tracks],
         "Title": [x["name"] for x in tracks],
         "Song URI": [x["uri"] for x in tracks],
         "Artist":artistName,
         "Artist URI": artistURI,
+        "Album Name":  [x["album"]["name"] for x in tracks],
+        "Duration_ms":[x["duration_ms"] for x in tracks],
         "Acousticness" : [x["acousticness"] for x in af],
         "Danceability":[x["danceability"] for x in af],
         "Energy":[x["energy"] for x in af],

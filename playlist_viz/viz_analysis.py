@@ -26,11 +26,11 @@ import seaborn as sns
 
 
 usePklInput = True
-projectDown =False
-clusterData = False
+projectDown =True
+clusterData = True
 plot3D = True
-writePlaylists = False
-writeMaxPlaylists = False
+writePlaylists = True
+writeMaxPlaylists = True
 
 if writePlaylists or writeMaxPlaylists:
     sp = initSpotipy("playlist-modify-private")
@@ -52,7 +52,7 @@ fid_inputPkl = "/".join((model_folder,"crates_compiled.pkl"))
 ### TODO: add script to run through all csvs in folder.
 #test_ex = "jul_2020_chance_encounters.csv"
 nPlaylists = 450#150#6
-nPlayExport = 6
+nPlayExport = 15
 playExportInterval = 10#6
 crate_range = [1,2,3,4,5,6,7,9,10,11,12,13,15]#,11,12] #,12
 #crate_range = [9,10,11,12,13,15]#,11,12] #,12
@@ -72,6 +72,7 @@ if projectDown:
    
     if usePklInput:
         df_pool = pd.read_pickle(fid_inputPkl)
+
     else:
         for ind in crate_range:
             test_str = "_crate_"+str(ind)+"_.csv"
@@ -80,9 +81,9 @@ if projectDown:
             df_pool = df_pool.append(df_tmp)
         
     df_pool = df_pool.sample(frac=1)
-    print(df_pool.head())
+    df_pool = df_pool[df_pool["Duration_ms"] > 30000]
+    #print(df_pool.head())
 
-    
     featuresPull = ['Danceability','Energy','Speechiness','Acousticness'
                     ,'Instrumentalness','Liveness','Valence','Loudness','Tempo'] #'Key',,'Loudness','Tempo' ### TODO: scale loudness, tempo to uniform.
     df_clust_pool = df_pool[featuresPull]
@@ -250,3 +251,6 @@ fig1.show(renderer='browser')
 
 fig2 = go.Figure(data=trace3,layout=layout2)
 fig2.show(renderer='browser')
+
+
+
