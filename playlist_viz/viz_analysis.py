@@ -5,13 +5,10 @@ Created on Tue Jan 12 18:46:12 2021
 @author: Max
 TODO:
     Gate the songs used by duration.
-    Get cluster means, make it so that the random gen selects a number of clusters far from each other.
-    proper interfacing with the spotify API, init side.
     EDA on the subdivided groups.
     Proper Investigation on the different dimensionality reduction techniques.
     Look at genre groupings.
     See if i can incorporate timbre patterns (12 dim vectors) (look into, see if can PCA down before later reduction).
-    With playlist URIs in text file, scrape them down. 
 """
 #import plotly.express as px
 from plotly.subplots import make_subplots
@@ -54,7 +51,7 @@ fid_inputPkl = "/".join((model_folder,"crates_compiled.pkl"))
 
 ### TODO: add script to run through all csvs in folder.
 #test_ex = "jul_2020_chance_encounters.csv"
-nPlaylists = 400#150#6
+nPlaylists = 450#150#6
 nPlayExport = 6
 playExportInterval = 10#6
 crate_range = [1,2,3,4,5,6,7,9,10,11,12,13,15]#,11,12] #,12
@@ -219,9 +216,29 @@ else:
 trace3 = go.Histogram(x=splitVals,xbins = dict(size=1),xaxis="x2",
                   yaxis="y2")
 
+
 layout1 = go.Layout(
-    showlegend = False
+    scene1 = dict(
+        xaxis = dict(nticks=4, range=[-40,40],),
+        yaxis = dict(nticks=4, range=[-40,40],),
+        zaxis = dict(nticks=4, range=[-40,40],),
+    ),
+    scene2 = dict(
+        xaxis = dict(nticks=4, range=[-40,40],),
+        yaxis = dict(nticks=4, range=[-40,40],),
+        zaxis = dict(nticks=4, range=[-40,40],),
+    ),
+    width=1000,
+    margin=dict(r=10, l=10, b=10, t=10),showlegend=False
 )
+
+
+layout2 = go.Layout(
+    showlegend = False,
+    width=500
+)
+
+
 fig1 = make_subplots(rows=1, cols=2,specs=[[{'type': 'surface'}, {'type': 'surface'}]])
 fig1.add_trace(trace1,row=1,col=1)
 fig1.add_trace(trace2,row=1,col=2)
@@ -231,5 +248,5 @@ fig1.show(renderer='browser')
 
 
 
-fig2 = go.Figure(data=trace3,layout=go.Layout(showlegend=False))
+fig2 = go.Figure(data=trace3,layout=layout2)
 fig2.show(renderer='browser')
