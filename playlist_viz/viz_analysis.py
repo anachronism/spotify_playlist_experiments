@@ -21,6 +21,7 @@ from plotly import tools
 from sklearn.cluster import SpectralClustering,OPTICS,AgglomerativeClustering,MiniBatchKMeans
 from spotify_interactions import createPlaylist,initSpotipy
 from model_fcns import dimReduce
+import utils 
 
 import numpy as np
 import pandas as pd
@@ -31,8 +32,8 @@ usePklInput = True
 projectDown =False
 clusterData = False
 plot3D = True
-writePlaylists = True
-writeMaxPlaylists = True
+writePlaylists = False
+writeMaxPlaylists = False
 
 if writePlaylists or writeMaxPlaylists:
     sp = initSpotipy("playlist-modify-private")
@@ -81,13 +82,9 @@ if projectDown:
             df_tmp = pd.read_csv(fid_pool)
             df_pool = df_pool.append(df_tmp)
         
- #       fid_ex = "/".join((csv_folder,test_ex))
-        #df_pool = pd.read_csv(fid_pool)
     df_pool = df_pool.sample(frac=1)
-#    df_ex = pd.read_csv(fid_ex)
     print(df_pool.head())
-    
-    
+
     
     featuresPull = ['Danceability','Energy','Speechiness','Acousticness'
                     ,'Instrumentalness','Liveness','Valence','Loudness','Tempo'] #'Key',,'Loudness','Tempo' ### TODO: scale loudness, tempo to uniform.
@@ -121,15 +118,36 @@ if clusterData:
 else:
     splitVals = np.load(fid_clustering+".npy")
 
-
-## Write playlists out
 nPlaylistOut = np.min([np.unique(splitVals).size,nPlaylists])
+## Distance calculation and such.
+clusterPoints = [] # separately saved points
+clusterInds = []
 for ind in range(0,nPlaylistOut):
     idxTest = np.where(splitVals==ind)
     idxTest = idxTest[0]
-    playlistOut = df_pool.iloc[idxTest]
-    posSave = poolReduced[idxTest,:]    
+    posSave = poolReduced[idxTest,:] 
+    clusterPoints.append(posSave)
+    clusterInds.append([ind]* posSave.shape[0])
+
     clusterPos[ind,:] = np.mean(posSave,axis=0)
+
+
+
+indPlaylistsOut,clusterCenters = utils.drawClusters(clusterPos,nPlayExport)    
+scatterClusters = [clusterPoints[x] for x in indPlaylistsOut]
+scatterClusters = [item for sublist in scatterClusters for item in sublist]
+scatterClusters = np.stack(scatterClusters)
+
+indsScatter = [clusterInds[x] for x in indPlaylistsOut]
+indsScatter = [item for sublist in indsScatter for item in sublist]
+
+
+## Write playlists out
+for ind in range(0,nPlaylistOut):
+
+    idxTest = np.where(splitVals==ind)
+    idxTest = idxTest[0]
+    playlistOut = df_pool.iloc[idxTest]
 
     for ind_plots,val in enumerate(minMaxPlots):
         playlistVals[ind_plots,ind] = playlistOut[val].mean(axis=0)
@@ -142,8 +160,7 @@ for ind in range(0,nPlaylistOut):
             playlistMin[val] = playlistOut
         
     playName = "playlist"+str(ind)+ " kMeans"+".csv"
-    if nTrip < nPlayExport and writePlaylists and not ind % playExportInterval:
-        nTrip = nTrip+1
+    if ind in indPlaylistsOut and writePlaylists:
         createPlaylist(sp,playName,playlistOut,True)
     playlistOut.to_csv("/".join((csv_folder_out,playName)))
 
@@ -167,10 +184,10 @@ if plot3D:
         '<i>Z</i>: %{z:.2f}<br />'+
         '<i>Cluster</i>: %{marker.color:d}',
         )
-    trace2 = go.Scatter3d(    x=clusterPos[:,0],
-        y=clusterPos[:,1],z=clusterPos[:,2], mode='markers',#,
+    trace2 = go.Scatter3d(    x=scatterClusters[:,0],
+        y=scatterClusters[:,1],z=scatterClusters[:,2], mode='markers',#,
         marker=dict(
-            size=5,color=splitVals,colorscale="Rainbow",line=dict(width=2,
+            size=5,color=indsScatter,colorscale="Rainbow",line=dict(width=2,
                                              color='DarkSlateGrey')),
         hovertemplate =
         '<i>X</i>: %{x:.2f}<br />'+
@@ -189,10 +206,10 @@ else:
         '<i>Y</i>: %{y:.2f}<br />'+
         '<i>Cluster</i>: %{marker.color:d}',
         color="Alphabet",opacity=0)
-    trace2 = go.Scatter(    x=clusterPos[:,0],
-        y=clusterPos[:,1], mode='markers',#,
+    trace2 = go.Scatter(    x=scatterClusters[:,0],
+        y=scatterClusters[:,1], mode='markers',#,
         marker=dict(
-            size=100,color=splitVals),
+            size=100,color=indsScatter),
         hovertemplate =
         '<i>X</i>: %{x:.2f}<br />'+
         '<i>Y</i>: %{y:.2f}<br />'+

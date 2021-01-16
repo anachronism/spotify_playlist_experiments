@@ -109,11 +109,41 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
 
 
 ''' 
-Playlist data analysis stuff
+Playlist data analysis stuff. df_in
 '''
-def getTopGenres(df_in):
-    #this is a stub right now.    
-    return []
+def getTopGenres(sp,df_in):
+    #this is a stub right now.
+
+    artistURI = df_in["Artist URI"]
+    uriFlat = [item for sublist in artistURI for item in sublist]
+
+    searchRate = 30
+    numSearches = len(uriFlat)
+
+    uriSearch = uriFlat
+    fullArtist = []
+    midBreak = False
+    while len(uriSearch) and (not midBreak): 
+        if len(uriSearch) > searchRate:
+            tmp = sp.artists(uriSearch[0:searchRate])
+            fullArtist = fullArtist + (tmp["artists"])
+            uriSearch = uriSearch[searchRate:]
+               # print("here0")
+
+        else:
+            tmp = sp.artists(uriSearch[0:])
+            fullArtist= fullArtist + (tmp["artists"])
+            midBreak = True
+
+    genresRet = [x["genres"] for x in fullArtist]
+    genresFlat = [item for sublist in genresRet for item in sublist]
+    genres_df = pd.DataFrame(data=genresFlat, columns = ["genres"])
+    genreHist = genres_df["genres"].value_counts()
+    #genreNames = genreHist.rows.values[0:5]
+    return ( genreHist.index.tolist(),genreHist.values)
+
+   # uri_list = [','.join(x) for x in ]
+    #artistObjs = sp.Artists(df_in["Artist URI"])    
 
 
 '''
@@ -141,6 +171,9 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
 
     if analyzeAf:
         #Generate relevant means (Practically should just do the mean over the whole DF and get the specific thing but w/e)
+        genresIn,genreCount = getTopGenres(sp,objIn)
+        genresRep = genresIn[0:3]
+        genresPrint = "Top Genres: "+ ", ".join(genresRep)+ " || "
         tempoMean =  df["Tempo"].mean(axis=0)
         danceMean =  df["Danceability"].mean(axis=0)
         energyMean =  df["Energy"].mean(axis=0)
@@ -156,7 +189,7 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
         str4=   (" || Mean Liveness: %0.2f" %liveMean)  
         str5 =  (" || Mean Valence: %0.2f" %valenceMean)  
         str6 = (" || Mean Instrumentalness: %0.2f"%instrMean)
-        strDescription = str0+str1+str2+str3+str4+str5 +str6   
+        strDescription = genresPrint + str0+str1+str2+str3+str4+str5 +str6   
     else: #Assuming for the moment else is a list of IDs
         strDescription = "Created "+ dtString
                     
@@ -224,6 +257,8 @@ def tracksToDF(tracks,af,artistList = False):
     artistObjs = [x["album"]["artists"] for x in tracks]
     artistName = []
     artistURI = []
+    album = []
+    genresObjs = 0
     for idx,elt in enumerate(artistObjs):
         artistName.append( [x["name"] for x in elt])
         artistURI.append([x["uri"] for x in elt])
