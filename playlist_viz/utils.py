@@ -1,6 +1,18 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 
+##### Parsing things
+#return list of int values
+def parseNodeInputStr(strIn, nClusters):
+	inVals = strIn.split(',')	
+
+	# Have to decide how I want to handle error cases
+	xInt = [int(x) for x in inVals]
+#	idx = np.where(xInt >= nClusters)
+	xOut = [(nClusters-1) if (idx >= nClusters) else idx for idx in xInt]
+	return xOut
+
+# Cluster selection
 def drawClusters(npIn, nClustersOut = 6,distance = 'l2'):
 	thresh = 20
 	nClustersIn = npIn.shape[0]
@@ -20,6 +32,7 @@ def drawClusters(npIn, nClustersOut = 6,distance = 'l2'):
 			valChosen = False
 			while not valChosen:
 				indAdd = np.random.choice(indSelect)
+				#print(indAdd)
 				if not (int(indAdd) in indDraw):
 					indDraw.append(indAdd)
 					clustersOut[ind,:] = npIn[indAdd,:]

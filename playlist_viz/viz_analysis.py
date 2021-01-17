@@ -3,6 +3,9 @@
 Created on Tue Jan 12 18:46:12 2021
 
 @author: Max
+NOTE: 
+    I think that this stuff with dash is relatively jank, because of the inability to pass values out. 
+
 TODO:
     EDA on the subdivided groups.
     Proper Investigation on the different dimensionality reduction techniques.
@@ -17,7 +20,8 @@ from plotly import tools
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output,State
+import dash_table
 
 from dash_components import generateTable
 
@@ -41,6 +45,8 @@ writeMaxPlaylists = False
 
 dashPlot = True
 
+nTableShow = 15
+
 if writePlaylists or writeMaxPlaylists:
     sp = initSpotipy("playlist-modify-private")
 
@@ -61,7 +67,7 @@ fid_inputPkl = "/".join((model_folder,"crates_compiled.pkl"))
 ### TODO: add script to run through all csvs in folder.
 #test_ex = "jul_2020_chance_encounters.csv"
 nPlaylists = 450#150#6
-nPlayExport = 15
+nPlayExport = 5
 playExportInterval = 10#6
 crate_range = [1,2,3,4,5,6,7,9,10,11,12,13,15]#,11,12] #,12
 #crate_range = [9,10,11,12,13,15]#,11,12] #,12
@@ -141,6 +147,7 @@ for ind in range(0,nPlaylistOut):
 
 
 indPlaylistsOut,clusterCenters = utils.drawClusters(clusterPos,nPlayExport)    
+
 scatterClusters = [clusterPoints[x] for x in indPlaylistsOut]
 scatterClusters = [item for sublist in scatterClusters for item in sublist]
 scatterClusters = np.stack(scatterClusters)
@@ -148,17 +155,21 @@ scatterClusters = np.stack(scatterClusters)
 indsScatter = [clusterInds[x] for x in indPlaylistsOut]
 indsScatter = [item for sublist in indsScatter for item in sublist]
 
+initArray = np.unique(indsScatter)
+initStr = [str(i) for i in initArray]
+nodeBoxInit = ", ".join(initStr)
 
+plSave = []
 ## Write playlists out
 for ind in range(0,nPlaylistOut):
 
     idxTest = np.where(splitVals==ind)
     idxTest = idxTest[0]
     playlistOut = df_pool.iloc[idxTest]
+    plSave.append(playlistOut) ### NOTE: This is probably nto the best way to deal with this but I'm lazy right now.
 
     for ind_plots,val in enumerate(minMaxPlots):
         playlistVals[ind_plots,ind] = playlistOut[val].mean(axis=0)
-
         if playlistVals[ind_plots,ind] > maxVals[ind_plots]:
             maxVals[ind_plots] = playlistVals[ind_plots,ind]
             playlistMax[val] = playlistOut
@@ -169,7 +180,8 @@ for ind in range(0,nPlaylistOut):
     playName = "playlist"+str(ind)+ " kMeans"+".csv"
     if ind in indPlaylistsOut and writePlaylists:
         createPlaylist(sp,playName,playlistOut,True)
-    playlistOut.to_csv("/".join((csv_folder_out,playName)))
+    
+    #playlistOut.to_csv("/".join((csv_folder_out,playName)))
 
 if writeMaxPlaylists:
     for val in minMaxPlots:
@@ -248,8 +260,6 @@ layout1 = go.Layout(
 
 layout2 = go.Layout(
     showlegend = False,
-    xaxis_title="Song Count",
-    yaxis_title="Number Of Playlists",
     width=500
 )
 
@@ -257,8 +267,9 @@ layout2 = go.Layout(
 markdown_text = '''
 ### Track Count:
 '''
-keys = ["Title","Artist","Album Name", "Tempo", "Key"]
+keys = ["Title","Artist","Album Name", "Tempo"]#
 df_display = playlistOut[keys]
+df_display = df_display.iloc[0:nTableShow]
 
 
 fig1 = make_subplots(rows=1, cols=2,specs=[[{'type': 'surface'}, {'type': 'bar'}]])#
@@ -268,12 +279,12 @@ fig1.update_layout(layout1)
 
 
 #fig1 = go.Figure(data=trace1,layout=layout1)
-fig2 = go.Figure(data=trace2,layout=layout1)
+fig2 = go.Figure(data=trace2,layout=layout2)
 #fig3 = go.Figure(data=trace3,layout=layout2)
 
 #fig1.show(renderer='browser')
 varTest = 0
-print("test" + str(varTest))
+#print("test" + str(varTest))
 sliderNotches = range(nPlaylists)
 sliderNotches = sliderNotches[0::20]
 ## Dash experimentation#
@@ -285,45 +296,98 @@ app.layout = html.Div(children=[
     html.Label("3d scatterplot of songs, tvne dim reduction"),
     dcc.Graph(
         id='scatterAll',
-        figure=fig1
+        figure=fig1,
     ),
     html.Br(),
 
     dcc.Markdown(children=markdown_text),
-    dcc.Graph(
-        id='scatterSel',
-        figure=fig2
+    html.Div(
+        style={'display':'flex'},
+        children=[        
+            html.Div( style={'width':'49%'},
+                    children = [
+                    dash_table.DataTable(
+                        id="plTable",
+                        style_cell={
+                        'whiteSpace': 'normal',
+                        'height': 'auto',
+                        'textAlign':'left'
+                        },
+                        columns=[{"name": i, "id": i} for i in df_display.columns],
+                        data=df_display.to_dict('records'),
+                    ),
+                ]),
+            html.Div(children = [
+                    dcc.Graph(
+                        id='scatterSel',
+                        figure=fig2,
+                        responsive=False
+                    ),
+
+                    html.Div(style={'display':'flex',
+                                    'margin':'auto'},
+                            children=[
+                        dcc.Input(id="node-box",value=nodeBoxInit, type='text'),
+                        html.Button(
+                            ['Update'],
+                            id='btnState',
+                            n_clicks=0
+                        ),
+                        html.Button(
+                            ['Save Playlist'],
+                            id='playlistSaveBtn',
+                            n_clicks=0
+                        ),
+                        html.Button(
+                            ['Draw 5 Clusters'],
+                            id='playlistDrawBtn',
+                            n_clicks=0
+                        ),
+                        html.Div(id='plSaveOutput')
+                    ]),
+                ]),
+        
+        ]
     ),
-    dcc.Slider(
-        id='nodeSlider',
-        min=0,
-        max=sliderNotches[-1],
-        value=0,
-        marks={str(ind): str(ind) for ind in sliderNotches},
-        step=None
-    ),
-    generateTable(df_display,max_rows=30)
+    
+
+    # dcc.Graph(
+    #     id = "currPlaylistTable",
+    #     figure = generateTable(df_display,max_rows=30)
+    # )
 ])
 
 
+# Cluster sel update plot. 
+
 @app.callback(
     Output('scatterSel', 'figure'),
-    Input('nodeSlider', 'value'))
-def update_figure(nodePlot):
-    pointsScatter = clusterPoints[nodePlot]
-    indsColor = clusterInds[nodePlot]
+    Output('plTable', 'data'),
+    Input('btnState','n_clicks'),
+    State('node-box', 'value'))
+def updateClusterSel(n_clicks,nodeStrIn):
+    
+    nodePlot = utils.parseNodeInputStr(nodeStrIn,nPlaylists)   
+    pointsScatter = [clusterPoints[nodeInd] for nodeInd in nodePlot]
+    pointsScatter = np.array([item for sublist in pointsScatter for item in sublist]) # Flatten list
+    
+    indsColor = [clusterInds[nodeInd] for nodeInd in nodePlot]
+    indsColor = [item for sublist in indsColor for item in sublist]
+   # print(indsColor)
+    
     traceUse = go.Scatter3d( x=pointsScatter[:,0],
         y=pointsScatter[:,1],z=pointsScatter[:,2], mode='markers',#,
         marker=dict(
-            size=5,color=indsColor,colorscale="Rainbow",line=dict(width=2,
+            size=5,color=indsColor,colorscale="Rainbow",cmin=0,cmax=nPlaylists-1,line=dict(width=2,
                                              color='DarkSlateGrey')),
         hovertemplate =
         '<i>X</i>: %{x:.2f}<br />'+
         '<i>Y</i>: %{y:.2f}<br />'+
         '<i>Z</i>: %{z:.2f}<br />'+
-        '<i>Cluster</i>: %{marker.color:d}',
-        )
+        '<i>Cluster</i>: %{marker.color: 3d}',
+    )
     
+
     layoutUse = go.Layout(
         scene1 = dict(
             xaxis = dict(nticks=4, range=[-40,40],),
@@ -340,8 +404,58 @@ def update_figure(nodePlot):
     )
     fig = go.Figure(data=traceUse,layout=layoutUse)
 
-    return fig
+    keys = ["Title","Artist","Album Name", "Tempo", "Key"]
+    playlistOut = plSave[nodePlot[0]] ### TODO: think about how I want to print these tables out. Maybe on tabs?
+    playlistOut = playlistOut.iloc[0:nTableShow]
 
+    df_display = playlistOut[keys].to_dict('records')
+    return fig,df_display
+
+
+#Playlist saving callback    
+@app.callback(
+    Output(component_id='plSaveOutput', component_property='children'), 
+    Input('playlistSaveBtn','n_clicks'),
+    State('node-box','value'))
+def saveCurrentPlaylist(n_clicks,nodeStrIn):
+
+    playlistInd = utils.parseNodeInputStr(nodeStrIn,nPlaylists)
+  #  playlistInd = playlistInd[0]
+
+    if n_clicks != 0:
+#    print("Playlist ind! "+ boxValStr)
+        for ind in playlistInd:
+            writeOut = plSave[ind]
+            sp = initSpotipy("playlist-modify-private")
+            createPlaylist(sp,"Cluster "+str(ind),writeOut,True)
+
+        return "Playlists Saved!"
+    else:
+        return "Init"
+
+
+#Playlist saving callback    
+@app.callback(
+    Output('node-box','value'),
+    Output('btnState','n_clicks'),
+    Input('playlistDrawBtn','n_clicks'))
+def drawMoreClusters(n_clicks):
+    if n_clicks != 0:
+        indPlaylistsOut,clusterCenters = utils.drawClusters(clusterPos,nPlayExport)    
+
+        scatterClusters = [clusterPoints[x] for x in indPlaylistsOut]
+        scatterClusters = [item for sublist in scatterClusters for item in sublist]
+        scatterClusters = np.stack(scatterClusters)
+
+        indsScatter = [clusterInds[x] for x in indPlaylistsOut]
+        indsScatter = [item for sublist in indsScatter for item in sublist]
+
+        indsPrint = np.unique(indsScatter)
+        initStr = [str(i) for i in indsPrint]
+     #  print(", ".join(initStr))
+        return ", ".join(initStr) , 1
+    else:
+        return nodeBoxInit,0
 app.run_server(debug=True)
 
 
