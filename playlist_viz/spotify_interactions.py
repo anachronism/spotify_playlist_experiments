@@ -219,7 +219,7 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
                # print("here0")
 
             else:
-                print(lenIdsProc)
+               # print(lenIdsProc)
                 sp.playlist_add_items(playID, idsProc[0:])
                 midBreak = True
 
