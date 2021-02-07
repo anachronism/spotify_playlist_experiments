@@ -24,9 +24,9 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-projectDown = False
+projectDown = True
 clusterData = True
-chooseClusterNum = False
+chooseClusterNum = True
 
 csv_folder = "playlist_csvs"
 csv_folder_out = "output_playlists"
@@ -41,7 +41,7 @@ fid_clusters_use = "/".join((model_folder,"clusters_thresh.pkl"))
 
 ### TODO: add script to run through all csvs in folder.
 #test_ex = "jul_2020_chance_encounters.csv"
-rangeClusterSearch = [3000,3050] #Right now, personal sweet spot is in this range
+rangeClusterSearch = [4000,4050] #Right now, personal sweet spot is in this range
 rangePrint = 5
 nPlayExport = 5
 minPlSize = 7 # minimum playlist size.
