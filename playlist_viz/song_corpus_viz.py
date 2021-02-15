@@ -36,7 +36,7 @@ import utils
 import numpy as np
 import pandas as pd
 
-#sp = initSpotipy("playlist-modify-private")
+sp = initSpotipy("playlist-modify-private")
 
 nTableShow = 15
 
@@ -61,7 +61,14 @@ df_drawn = df_clustered_thresh[df_clustered_thresh['Cluster'].isin(indsPlaylists
 
 minMaxPlots = ["Acousticness","Danceability","Valence","Energy"]
 df_min,df_max = utils.getExtrema(df_clustered_thresh,minMaxPlots,3)
-print(df_max)
+df_extrema = df_min.append(df_max)
+
+dropdownListExtrema = [{"label":"All","value":"All"}]
+
+for val in minMaxPlots:
+    tmp = {"label":val,"value":val}
+    dropdownListExtrema.append(tmp)
+
 
 ######################### The actual Vis part.
 
@@ -81,7 +88,7 @@ df_display = df_display.iloc[0:nTableShow]
 fig1 = updateScatter3D(df_clustered,nPlaylists,None) # Plot all
 fig2 = updateScatter3D(df_drawn,nPlaylists,None) # plot selected
 fig3 = go.Figure(data=trace3) # hist#
-fig4 = updateScatter3D(df_max,nPlaylists,None) # plot extremes (Going to have to modify later)
+fig4 = updateScatter3D(df_extrema,nPlaylists,None) # plot extremes (Going to have to modify later)
 
 ## Dash experimentation#
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']#
@@ -152,6 +159,7 @@ app.layout = html.Div(children=[
                         # animate=True
                     ),
 
+                    html.Br(),
                     html.Div(style={'display':'flex',
                                     'margin':'auto'},
                             children=[
@@ -207,27 +215,32 @@ app.layout = html.Div(children=[
                         responsive=False
                     ),
 
-                    # html.Div(style={'display':'flex',
-                    #                 'margin':'auto'},
-                    #         children=[
+                    html.Div(style={'display':'flex',
+                                    'margin':'auto'},
+                            children=[
                     #     dcc.Input(id="node-box",value=nodeBoxInit, type='text'),
-                    #     html.Button(
-                    #         ['Update'],
-                    #         id='btnState',
-                    #         n_clicks=0
-                    #     ),
-                    #     html.Button(
-                    #         ['Save Playlists'],
-                    #         id='playlistSaveBtn_2',
-                    #         n_clicks=0
-                    #     ),
+                        dcc.Dropdown(
+                            id='dropdownExtrema',
+                            options=dropdownListExtrema,
+                            value='All',
+                            clearable=False,
+                            searchable=False,
+                            style={'width':'100%'}
+                        ),
+                        html.Button(
+                            ['Save Playlists'],
+                            id='playlistSaveBtn_3',
+                            n_clicks=0
+                        ),
+                        html.Div(id='plSaveOutput3')
+
                     #     html.Button(
                     #         ['Draw 5 Clusters'],
                     #         id='playlistDrawBtn',
                     #         n_clicks=0
                     #     ),
                     #     html.Div(id='plSaveOutput2')
-                    # ]),
+                    ]),
                 ]),
         
         ]
@@ -329,7 +342,7 @@ def saveCurrentPlaylist(n_clicks,nodeIn):
 
     if n_clicks != 0:
         writeOut = df_clustered[df_clustered["Cluster"] == nodeIn]
-        sp = initSpotipy("playlist-modify-private")
+      #  sp = initSpotipy("playlist-modify-private")
         createPlaylist(sp,"Cluster "+str(nodeIn),writeOut,True)
 
         return "Playlist Saved!"
@@ -347,12 +360,39 @@ def savePlaylistsCluster(n_clicks,nodeStrIn):
 
     if n_clicks != 0:
 #    print("Playlist ind! "+ boxValStr)
+        sp = initSpotipy("playlist-modify-private")
         for ind in playlistInd:
             writeOut = df_clustered[df_clustered["Cluster"] == ind]
-            sp = initSpotipy("playlist-modify-private")
             createPlaylist(sp,"Cluster "+str(ind),writeOut,True)
 
         return "Playlist Saved!"
+    else:
+        return "Init"
+
+@app.callback(
+    Output(component_id='plSaveOutput3', component_property='children'), 
+    Input('playlistSaveBtn_3','n_clicks'),
+    State('dropdownExtrema','value'))
+def savePlaylistsExtrema(n_clicks,nodeStrIn):
+
+    if n_clicks != 0:
+#    print("Playlist ind! "+ boxValStr)
+       # sp = initSpotipy("playlist-modify-private")
+        if nodeStrIn == "All":
+            for elt in minMaxPlots:
+                df_out= df_extrema[df_extrema["Category"]==elt]
+                df_out_max = df_out[df_out["Extrema"] == "Max"]
+                df_out_min = df_out[df_out["Extrema"] == "Min"]
+                createPlaylist(sp,"Max %s | Cluster %d"%(elt,df_out_max.iloc[0]["Cluster"]),df_out_max,True)
+                createPlaylist(sp,"Min %s | Cluster %d"%(elt,df_out_min.iloc[0]["Cluster"]),df_out_min,True)
+        else:
+            df_out= df_extrema[df_extrema["Category"]==nodeStrIn]
+            df_out_max = df_out[df_out["Extrema"] == "Max"]
+            df_out_min = df_out[df_out["Extrema"] == "Min"]
+            createPlaylist(sp,"Max %s | Cluster %d"%(nodeStrIn,df_out_max.iloc[0]["Cluster"]),df_out_max,True)
+            createPlaylist(sp,"Min %s | Cluster %d"%(nodeStrIn,df_out_min.iloc[0]["Cluster"]),df_out_min,True)
+
+        return "Playlists Saved!"
     else:
         return "Init"
 
@@ -425,6 +465,16 @@ def display_click_data_subset(clickData):
     return idxUse
 #     return str(retPrint),df_display
 
+
+@app.callback(
+    Output('scatterExtreme','figure'),
+    Input('dropdownExtrema','value'))
+def display_sel_extrema(extremeIn):
+    if extremeIn=="All":
+        df_use = df_extrema
+    else:
+        df_use = df_extrema[df_extrema["Category"] == extremeIn]
+    return updateScatter3D(df_use,nPlaylists,None)
 
 app.run_server(debug=True)
 

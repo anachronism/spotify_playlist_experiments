@@ -12,8 +12,17 @@ def getExtrema(dfIn,categories,rangePrint):
         df_sort = dfDownsel.sort_values(by=[cat],ascending = True)
         idxMin = df_sort.index[0]
         idxMax = df_sort.index[1]
-        df_min = df_min.append(dfIn[dfIn["Cluster"]==idxMin])
-        df_max = df_max.append(dfIn[dfIn["Cluster"]==idxMax])
+        df_min_tmp = dfIn[dfIn["Cluster"] == idxMin]
+        df_min_tmp = df_min_tmp.assign(Category= [cat] * len(df_min_tmp.index))
+        df_min_tmp = df_min_tmp.assign(Extrema= ["Min"] * len(df_min_tmp.index))
+        df_max_tmp = dfIn[dfIn["Cluster"] == idxMax]
+        df_max_tmp = df_max_tmp.assign(Category= [cat] * len(df_max_tmp.index))
+        df_max_tmp = df_max_tmp.assign(Extrema= ["Max"] * len(df_max_tmp.index))
+        
+
+        df_min = df_min.append(df_min_tmp)
+        df_max = df_max.append(df_max_tmp)
+
         #print(df_sort.index)
         minVals = df_sort.index[0:rangePrint].values
         maxVals = np.flip(df_sort.index[-rangePrint:].values)
