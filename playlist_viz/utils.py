@@ -11,7 +11,7 @@ def getExtrema(dfIn,categories,rangePrint):
     for cat in categories:
         df_sort = dfDownsel.sort_values(by=[cat],ascending = True)
         idxMin = df_sort.index[0]
-        idxMax = df_sort.index[1]
+        idxMax = df_sort.index[-1]
         df_min_tmp = dfIn[dfIn["Cluster"] == idxMin]
         df_min_tmp = df_min_tmp.assign(Category= [cat] * len(df_min_tmp.index))
         df_min_tmp = df_min_tmp.assign(Extrema= ["Min"] * len(df_min_tmp.index))
