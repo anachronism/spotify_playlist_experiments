@@ -16,5 +16,9 @@ def updateScatter3D(dfIn,nPlaylists,cFocus):
 
     line=dict(width=0.5,color='Black')
     marker = dict(size=2,color=dfIn["Cluster"],colorscale='Rainbow',line=line)
-    data = go.Scatter3d(x=dfIn["x"],y=dfIn["y"],z=dfIn["z"], mode='markers',marker=marker)
+    
+    data = go.Scatter3d(x=dfIn["x"],y=dfIn["y"],z=dfIn["z"], mode='markers',marker=marker,hovertemplate = 'X: %{x:.2f}<br>'+ 
+                        'Y: %{y:.2f}<br>' +
+                        'Z: %{z:.2f}<br>' +
+                        'Cluster: %{marker.color:4d}')
     return go.Figure(data=[data])

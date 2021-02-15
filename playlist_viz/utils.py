@@ -1,6 +1,28 @@
 import numpy as np
 from scipy.spatial.distance import cdist
+import pandas as pd
 
+#
+def getExtrema(dfIn,categories,rangePrint):
+    df_min = pd.DataFrame()
+    df_max = pd.DataFrame()
+    
+    dfDownsel = dfIn.groupby(['Cluster']).mean()
+    for cat in categories:
+        df_sort = dfDownsel.sort_values(by=[cat],ascending = True)
+        idxMin = df_sort.index[0]
+        idxMax = df_sort.index[1]
+        df_min = df_min.append(dfIn[dfIn["Cluster"]==idxMin])
+        df_max = df_max.append(dfIn[dfIn["Cluster"]==idxMax])
+        #print(df_sort.index)
+        minVals = df_sort.index[0:rangePrint].values
+        maxVals = np.flip(df_sort.index[-rangePrint:].values)
+        minStr = str(minVals)
+        maxStr = str(maxVals)
+        print("Min "+ cat + ": "+ minStr)
+        #print(df_sort[cat].iloc[idxValsMin].values)
+        print("Max "+ cat + ": "+ maxStr)    
+    return df_min,df_max
 ##### Parsing things
 #return list of int values
 def parseNodeInputStr(strIn, nClusters):

@@ -19,6 +19,7 @@ TODO:
 
 from spotify_interactions import createPlaylist,initSpotipy
 from model_fcns import dimReduce,runClustering
+import utils
 
 import numpy as np
 import pandas as pd
@@ -41,7 +42,7 @@ fid_clusters_use = "/".join((model_folder,"clusters_thresh.pkl"))
 
 ### TODO: add script to run through all csvs in folder.
 #test_ex = "jul_2020_chance_encounters.csv"
-rangeClusterSearch = [4000,4050] #Right now, personal sweet spot is in this range
+rangeClusterSearch = [4300,4500] #Right now, personal sweet spot is in this range
 rangePrint = 5
 nPlayExport = 5
 minPlSize = 7 # minimum playlist size.
@@ -110,24 +111,27 @@ df_clustersUse.to_pickle(fid_clusters_use)
 
 
 ############### Get max and min values.
-minMaxPlots = ["Acousticness","Danceability","Valence","Energy"]
-minPlots = dict()
-maxPlots = dict()
-df_centers_downsel = df_clustersUse.groupby(['Cluster']).mean()
 
-for cat in minMaxPlots:
-    df_sort = df_centers_downsel.sort_values(by=[cat],ascending = True)
-    minPlots[cat] = df_sort.iloc[0]
-    maxPlots[cat] = df_sort.iloc[-1]
-    #print(df_sort.index)
-    clustersUseValues = clustersUse.index.values
-    minVals = df_sort.index[0:rangePrint].values
-    maxVals = np.flip(df_sort.index[-rangePrint:].values)
-    minStr = str(minVals)
-    maxStr = str(maxVals)
-    print("Min "+ cat + ": "+ minStr)
-    #print(df_sort[cat].iloc[idxValsMin].values)
-    print("Max "+ cat + ": "+ maxStr)
+minMaxPlots = ["Acousticness","Danceability","Valence","Energy"]
+utils.getExtrema(df_clustersUse,minMaxPlots,rangePrint)
+
+# minPlots = dict()
+# maxPlots = dict()
+# df_centers_downsel = df_clustersUse.groupby(['Cluster']).mean()
+
+# for cat in minMaxPlots:
+#     df_sort = df_centers_downsel.sort_values(by=[cat],ascending = True)
+#     minPlots[cat] = df_sort.iloc[0]
+#     maxPlots[cat] = df_sort.iloc[-1]
+#     #print(df_sort.index)
+#     clustersUseValues = clustersUse.index.values
+#     minVals = df_sort.index[0:rangePrint].values
+#     maxVals = np.flip(df_sort.index[-rangePrint:].values)
+#     minStr = str(minVals)
+#     maxStr = str(maxVals)
+#     print("Min "+ cat + ": "+ minStr)
+#     #print(df_sort[cat].iloc[idxValsMin].values)
+#     print("Max "+ cat + ": "+ maxStr)
 
 
 

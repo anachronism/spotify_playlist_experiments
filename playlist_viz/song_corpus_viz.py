@@ -59,6 +59,10 @@ df_centers = df_clustered_thresh.groupby(['Cluster']).mean()
 indsPlaylistsOut = utils.drawClusters(df_centers,nPlayExport)    
 df_drawn = df_clustered_thresh[df_clustered_thresh['Cluster'].isin(indsPlaylistsOut)]
 
+minMaxPlots = ["Acousticness","Danceability","Valence","Energy"]
+df_min,df_max = utils.getExtrema(df_clustered_thresh,minMaxPlots,3)
+print(df_max)
+
 ######################### The actual Vis part.
 
 #sns.histplot(playlistDance)
@@ -76,8 +80,8 @@ df_display = df_display.iloc[0:nTableShow]
 
 fig1 = updateScatter3D(df_clustered,nPlaylists,None) # Plot all
 fig2 = updateScatter3D(df_drawn,nPlaylists,None) # plot selected
-fig3 = go.Figure(data=trace3) # hist
-# fig4 = updateScatter3D(minMaxClusterPos,minMaxColors,len(idxMin),None,True) # plot extremes
+fig3 = go.Figure(data=trace3) # hist#
+fig4 = updateScatter3D(df_max,nPlaylists,None) # plot extremes (Going to have to modify later)
 
 ## Dash experimentation#
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']#
@@ -89,6 +93,7 @@ app.layout = html.Div(children=[
     id="histTotal",
     figure=fig3),
     html.Br(),
+    ### Plot 1
     html.H3(id="topLabel",children="3d scatterplot of songs, tvne dim reduction"),
     html.Div(style={'display':'flex'},
         children=[ 
@@ -121,6 +126,7 @@ app.layout = html.Div(children=[
     ),
 
     html.Br(),
+    ### Plot 2
     html.H3(id="nodeSelSub", children="Subselection of clusters: "),
     html.Div(
         style={'display':'flex'},
@@ -171,60 +177,61 @@ app.layout = html.Div(children=[
         
         ]
     ),
-    html.Div(id='nodeShowUpdate_1', style={'display': 'none'}),
     html.Div(id='nodeShowClick', style={'display': 'none'}),
     html.Div(id='nodeShowUpdate_0', style={'display': 'none'}),
+    html.Div(id='nodeShowUpdate_1', style={'display': 'none'}),
+    html.Div(id='nodeShowUpdate_2', style={'display': 'none'}),
 
-    # html.Br(),
-    # html.H3(id="nodeSelExtreme", children="Extremities: "),
-    # html.Div(
-    #     style={'display':'flex'},
-    #     children=[        
-    #         #html.Div( style={'width':'49%'},
-    #             #     children = [
-    #             #     dash_table.DataTable(
-    #             #         id="plTable_extreme",
-    #             #         style_cell={
-    #             #         'whiteSpace': 'normal',
-    #             #         'height': 'auto',
-    #             #         'textAlign':'left'
-    #             #         },
-    #             #         columns=[{"name": i, "id": i} for i in df_display.columns],
-    #             #         data=df_display.to_dict('records'),
-    #             #     ),
-    #             # ]),
-    #         html.Div(children = [
-    #                 dcc.Graph(
-    #                     id='scatterExtreme',
-    #                     figure=fig4,
-    #                     responsive=False
-    #                 ),
+    html.Br(),
+    html.H3(id="topLabel_extrema", children="Extremities: "),
+    html.Div(
+        style={'display':'flex'},
+        children=[        
+            html.Div( style={'width':'49%'},
+                    children = [
+                    dash_table.DataTable(
+                        id="plTable_extreme",
+                        style_cell={
+                        'whiteSpace': 'normal',
+                        'height': 'auto',
+                        'textAlign':'left'
+                        },
+                        columns=[{"name": i, "id": i} for i in df_display.columns],
+                        data=df_display.to_dict('records'),
+                    ),
+                ]),
+            html.Div(children = [
+                    dcc.Graph(
+                        id='scatterExtreme',
+                        figure=fig4,
+                        responsive=False
+                    ),
 
-    #                 # html.Div(style={'display':'flex',
-    #                 #                 'margin':'auto'},
-    #                 #         children=[
-    #                 #     dcc.Input(id="node-box",value=nodeBoxInit, type='text'),
-    #                 #     html.Button(
-    #                 #         ['Update'],
-    #                 #         id='btnState',
-    #                 #         n_clicks=0
-    #                 #     ),
-    #                 #     html.Button(
-    #                 #         ['Save Playlists'],
-    #                 #         id='playlistSaveBtn_2',
-    #                 #         n_clicks=0
-    #                 #     ),
-    #                 #     html.Button(
-    #                 #         ['Draw 5 Clusters'],
-    #                 #         id='playlistDrawBtn',
-    #                 #         n_clicks=0
-    #                 #     ),
-    #                 #     html.Div(id='plSaveOutput2')
-    #                 # ]),
-    #             ]),
+                    # html.Div(style={'display':'flex',
+                    #                 'margin':'auto'},
+                    #         children=[
+                    #     dcc.Input(id="node-box",value=nodeBoxInit, type='text'),
+                    #     html.Button(
+                    #         ['Update'],
+                    #         id='btnState',
+                    #         n_clicks=0
+                    #     ),
+                    #     html.Button(
+                    #         ['Save Playlists'],
+                    #         id='playlistSaveBtn_2',
+                    #         n_clicks=0
+                    #     ),
+                    #     html.Button(
+                    #         ['Draw 5 Clusters'],
+                    #         id='playlistDrawBtn',
+                    #         n_clicks=0
+                    #     ),
+                    #     html.Div(id='plSaveOutput2')
+                    # ]),
+                ]),
         
-    #     ]
-    # ),
+        ]
+    ),
     # dcc.Graph(
     #     id = "currPlaylistTable",
     #     figure = generateTable(df_display,max_rows=30)
@@ -251,6 +258,19 @@ def updateClusterSel(n_clicks,nodeStrIn):
     fig = updateScatter3D(df_drawn,nPlaylists,None)
     return fig, nodePlot[0]
 
+
+@app.callback(
+    Output('plTable_extreme','data'),
+    Input('nodeShowUpdate_2','children') ####HERE
+    )
+def updateTableAll(nodeShowUpdate):
+
+    keys = ["Title","Artist","Album Name", "Tempo", "Key"]
+    playlistOut = df_clustered[df_clustered["Cluster"] == nodeShowUpdate]
+    playlistOut = playlistOut.iloc[0:nTableShow]
+    df_display = playlistOut[keys].to_dict('records')
+
+    return df_display
 
 @app.callback(
     Output('scatterAll','figure'),
@@ -350,6 +370,22 @@ def drawMoreClusters(n_clicks):
         return ", ".join(initStr) , 1
     else:
         return nodeBoxInit,0
+
+@app.callback(
+    Output('topLabel_extrema', 'children'),
+#    Output('plTable_sel', 'data'),
+    Output('nodeShowUpdate_2','children'),
+    Input('scatterExtreme', 'clickData'))
+def display_click_data(clickData):
+#    print(clickData)
+    if not clickData is None:
+        retPrint = clickData["points"][0]["marker.color"]
+        idxUse = retPrint 
+    else:
+        retPrint = None
+        idxUse = 0
+    strPrint = "Extrema: " + str(idxUse)
+    return strPrint,idxUse
 
 @app.callback(
     Output('topLabel', 'children'),

@@ -4,7 +4,7 @@
 * Slider to determine size of cluster that we care about.
 * Plot ephemera clusters.
 * for active cluster, show the average of the spotify features for the cluster.
-
+* Maybe hover mode stuff.
 ## Cluster size analysis
 * Get closest cluster to currently active on second pane
 * Pull largest clusters
