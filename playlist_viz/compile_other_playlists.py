@@ -29,13 +29,13 @@ for playID in pl_ids:
 
 # Get unique tracks by ID
 trackIdsUnique = list(dict.fromkeys(trackIds))
-print("Number of unique tracks: " + str(len(trackIdsUnique)))
 
 # Remove tracks already in library.
 indOut = si.removeSavedTracks(sp,trackIdsUnique) # This step is not strictly necessary, and doesn't seem to work all the time.
 tracksOut = [trackIdsUnique[idx] for idx in indOut]
+#tracksOut = trackIds
 
 ## TODO: You could make it so it adds to an existing playlist instead of creating a new one, but I don't have the spotipy API hooks in place to do that yet. 
 # Write playlist out.
-si.createPlaylist(sp,playlistTitle,tracksOut)
+si.createPlaylist(sp,playlistOutput,tracksOut)
 
