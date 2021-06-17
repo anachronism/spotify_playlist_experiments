@@ -11,6 +11,10 @@ sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-
 
 
 dw_ids = si.getPlaylistIDs(sp,playlistSearch)
+dw_ids = list(filter(None,dw_ids))
+dw_ids = [elt for elt in dw_ids if elt!='37i9dQZEVXcScWD9gb8qCj']
+
+print(dw_ids)
 trackIds = []
 for playID in dw_ids:
 	tmp= si.getTracksFromPlaylist(sp,playID,False,False)

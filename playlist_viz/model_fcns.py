@@ -35,7 +35,7 @@ def dimReduce(df_in,n_components):
 # Check learning_rate,  
 
 
-def runClustering(dfIn,maxNumClusters = 1000,findClusterCount = True):
+def runClustering(dfIn,maxNumClusters = 1000,findClusterCount = True,showPlot = True):
     # Takes a dataframe in, must have columns x, y, and z.
 
     dimsAccess = ["x","y","z"]
@@ -64,8 +64,9 @@ def runClustering(dfIn,maxNumClusters = 1000,findClusterCount = True):
         idxUse = np.argmin(silScore)
         valsUse = splitVals[idxUse]
         idxUse = rangeSearch[idxUse]
-        sns.lineplot(data=silScore)
-        plt.show()
+        if showPlot:
+            sns.lineplot(data=silScore)
+            plt.show()
     else:
         idxUse = maxNumClusters
         sc = MiniBatchKMeans(n_clusters = idxUse)

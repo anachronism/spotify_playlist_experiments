@@ -59,6 +59,7 @@ def getPlaylistIDs(sp,strName):
     while not (currVal["next"] is None):
         currVal = sp.current_user_playlists(limit=50, offset=offset)
         plList = currVal["items"]
+#        print(plList[0].keys())
 
         tmp = [item for item in plList if (strName.lower() in item["name"].lower()) ]  
         for elt in tmp:
@@ -91,7 +92,7 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
         tracksNew = [item["track"] for item in plHandle["items"]]
         tracksSave = tracksSave + tracksNew
         
-        newIDs = [item["id"]for item in tracksNew]
+        newIDs = [item["id"]for item in tracksNew if item["id"]]
         trackIds = trackIds + newIDs
 
         if ret_af:
@@ -244,6 +245,9 @@ def removeSavedTracks(sp,trackIDs):
     songsUnliked = [not x for x in songsLiked]
     indOut = np.where(songsUnliked)
     return indOut[0]
+
+def removeTracksFromPlaylist(sp,plID,trackIDs):
+    sp.playlist_remove_all_occurrences_of_items(plID,trackIDs)
 
 
 '''

@@ -1,6 +1,9 @@
 # Visualization improvements
+## Order of things to do
+* CSV to playlist
+* Collapse down to one dimension
+
 ## Plots to add 
-* Min/max clusters for each type. Select type from drop down menu, or show all of them.
 * Slider to determine size of cluster that we care about.
 * Plot ephemera clusters.
 * for active cluster, show the average of the spotify features for the cluster.

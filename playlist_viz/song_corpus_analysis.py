@@ -25,113 +25,115 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-projectDown = True
-clusterData = True
-chooseClusterNum = True
-
-csv_folder = "playlist_csvs"
-csv_folder_out = "output_playlists"
-model_folder = "pkl_vals"
-
-fid_poolRed = "/".join((model_folder,"poolReduced"))
-fid_clustering = "/".join((model_folder,"clusters.pkl"))
-fid_clusterNum = "/".join((model_folder,"nPlaylists"))
-fid_totalPool =  "/".join((model_folder,"totalPool.pkl"))
-fid_inputPkl = "/".join((model_folder,"crates_compiled.pkl"))
-fid_clusters_use = "/".join((model_folder,"clusters_thresh.pkl"))
-
-### TODO: add script to run through all csvs in folder.
-#test_ex = "jul_2020_chance_encounters.csv"
-rangeClusterSearch = [4300,4500] #Right now, personal sweet spot is in this range
-rangePrint = 5
-nPlayExport = 5
-minPlSize = 7 # minimum playlist size.
-featuresPull = ['Danceability','Energy','Speechiness','Acousticness'
-                    ,'Instrumentalness','Liveness','Valence','Loudness','Tempo'] #'Key',,'Loudness','Tempo' ### TODO: scale loudness, tempo to uniform.
-    # Running index, probably inefficient.
-#playlistMax = dict()
-#playlistMin = dict()
-nTrip = 0
-#maxVals = np.zeros(len(minMaxPlots))
-#minVals = np.ones(len(minMaxPlots))
+def analyseSongCorpus(rangeClusterSearch=[3600,3650],showPlot=False,poolSize=30e3,projectDown=True,clusterData=True,chooseClusterNum=True,fid_in="pkl_vals/crates_compiled.pkl",out_append=""):
 
 
-###### APPLY DIM REDUCTION
-if projectDown:
-    # Read saved pickle file from crate_compile script.
-    df_pool = pd.read_pickle(fid_inputPkl)
-    # Apply preprocessing.        
-    df_pool = df_pool.sample(frac=1)
-    df_pool = df_pool[df_pool["Duration_ms"] > 30000]
-    df_clust_pool = df_pool[featuresPull] 
-    df_clust_pool = df_clust_pool.dropna(axis='rows')
-    
-    poolReduced = dimReduce(df_clust_pool,3)    
-    fid_poolRed = fid_poolRed+"_3d"
+    csv_folder = "playlist_csvs"
+    csv_folder_out = "output_playlists"
+    model_folder = "pkl_vals"
 
-    df_pool["x"] = poolReduced[:,0]
-    df_pool["y"] = poolReduced[:,1]
-    df_pool["z"] = poolReduced[:,2]
-    
-    np.save(fid_poolRed,poolReduced)
-    df_pool.to_pickle(fid_totalPool)
-else:
-    fid_poolRed = fid_poolRed+"_3d"
-    poolReduced = np.load(fid_poolRed+".npy")
-    df_pool = pd.read_pickle(fid_totalPool) 
+    fid_poolRed = "/".join((model_folder,out_append+"poolReduced"))
+    fid_clustering = "/".join((model_folder,out_append+"clusters.pkl"))
+    fid_clusterNum = "/".join((model_folder,out_append+"nPlaylists"))
+    fid_totalPool =  "/".join((model_folder,out_append+"totalPool.pkl"))
+    fid_clusters_use = "/".join((model_folder,out_append+"clusters_thresh.pkl"))
 
-###### APPLY CLUSTERING
-if clusterData:
-    ## Clustering.
-    if chooseClusterNum:
-        df_clustered,nPlaylists = runClustering(df_pool,rangeClusterSearch,True)
+    ### TODO: add script to run through all csvs in folder.
+    #test_ex = "jul_2020_chance_encounters.csv"
+    rangePrint = 5
+    nPlayExport = 5
+    minPlSize = 7 # minimum playlist size.
+    featuresPull = ['Danceability','Energy','Speechiness','Acousticness'
+                        ,'Instrumentalness','Liveness','Valence','Loudness','Tempo'] #'Key',,'Loudness','Tempo' ### TODO: scale loudness, tempo to uniform.
+        # Running index, probably inefficient.
+    nTrip = 0
+    songLenMin = 30 # min length of song to be considered, in seconds
+    # Draw randomly from the total pool before doing any processing. Given size of pool, probably the best way to deal with it.
+    # fracPool = 0.5 # fraction of songs in pool to sample. 0 to 1.
+
+
+    ###### APPLY DIM REDUCTION
+    if projectDown:
+        # Read saved pickle file from crate_compile script.
+        df_pool = pd.read_pickle(fid_in)
+        # Apply preprocessing.        
+        df_pool = df_pool[df_pool["Duration_ms"] > songLenMin*1e3]
+        print(df_pool.columns)
+        poolLen = len(df_pool.index)
+        if poolSize > poolLen:
+            fracPool = 1
+        else:
+            fracPool = poolSize/poolLen
+        df_pool = df_pool.sample(frac=fracPool)
+        df_clust_pool = df_pool[featuresPull] 
+        df_clust_pool = df_clust_pool.dropna(axis='rows')
+        
+        poolReduced = dimReduce(df_clust_pool,3)    
+        fid_poolRed = fid_poolRed+"_3d"
+
+        df_pool["x"] = poolReduced[:,0]
+        df_pool["y"] = poolReduced[:,1]
+        df_pool["z"] = poolReduced[:,2]
+        
+        np.save(fid_poolRed,poolReduced)
+        df_pool.to_pickle(fid_totalPool)
     else:
+        fid_poolRed = fid_poolRed+"_3d"
+        poolReduced = np.load(fid_poolRed+".npy")
+        df_pool = pd.read_pickle(fid_totalPool) 
+
+    ###### APPLY CLUSTERING
+    if clusterData:
+        ## Clustering.
+        if chooseClusterNum:
+            df_clustered,nPlaylists = runClustering(df_pool,rangeClusterSearch,True,showPlot)
+        else:
+            nPlaylists = np.load(fid_clusterNum+".npy")
+            df_clustered,nPlaylists = runClustering(df_pool,nPlaylists,False,showPlot)
+
+        df_clustered.to_pickle(fid_clustering)
+        np.save(fid_clusterNum,nPlaylists)
+    else:
+        df_clustered= pd.read_pickle(fid_clustering)
         nPlaylists = np.load(fid_clusterNum+".npy")
-        df_clustered,nPlaylists = runClustering(df_pool,nPlaylists,False)
-
-    df_clustered.to_pickle(fid_clustering)
-    np.save(fid_clusterNum,nPlaylists)
-else:
-    df_clustered= pd.read_pickle(fid_clustering)
-    nPlaylists = np.load(fid_clusterNum+".npy")
 
 
-### Limit playlist sizes
-#tmp = df_clustered.groupby(['Cluster'])
-clusterSizes = df_clustered['Cluster'].value_counts()
-clustersUse = clusterSizes[clusterSizes>=minPlSize]
-#print(clustersUse.shape)
-clustersEphemera = clusterSizes[clusterSizes < minPlSize]
-df_clustersUse = df_clustered[df_clustered['Cluster'].isin(clustersUse.index.values)]
+    ### Limit playlist sizes
+    #tmp = df_clustered.groupby(['Cluster'])
+    clusterSizes = df_clustered['Cluster'].value_counts()
+    clustersUse = clusterSizes[clusterSizes>=minPlSize]
+    #print(clustersUse.shape)
+    clustersEphemera = clusterSizes[clusterSizes < minPlSize]
+    df_clustersUse = df_clustered[df_clustered['Cluster'].isin(clustersUse.index.values)]
 
-df_clustersUse.to_pickle(fid_clusters_use)
+    df_clustersUse.to_pickle(fid_clusters_use)
 
-### NOTE: put epehemera into one cluster/playlist
-#df_clustered = df_clustersUse # done this way currently just to evaluate temporarily.
+    ### NOTE: put epehemera into one cluster/playlist
+    #df_clustered = df_clustersUse # done this way currently just to evaluate temporarily.
 
 
-############### Get max and min values.
+    ############### Get max and min values.
 
-minMaxPlots = ["Acousticness","Danceability","Valence","Energy"]
-utils.getExtrema(df_clustersUse,minMaxPlots,rangePrint)
+    minMaxPlots = ["Acousticness","Danceability","Valence","Energy"]
+    utils.getExtrema(df_clustersUse,minMaxPlots,rangePrint)
 
-# minPlots = dict()
-# maxPlots = dict()
-# df_centers_downsel = df_clustersUse.groupby(['Cluster']).mean()
+    # minPlots = dict()
+    # maxPlots = dict()
+    # df_centers_downsel = df_clustersUse.groupby(['Cluster']).mean()
 
-# for cat in minMaxPlots:
-#     df_sort = df_centers_downsel.sort_values(by=[cat],ascending = True)
-#     minPlots[cat] = df_sort.iloc[0]
-#     maxPlots[cat] = df_sort.iloc[-1]
-#     #print(df_sort.index)
-#     clustersUseValues = clustersUse.index.values
-#     minVals = df_sort.index[0:rangePrint].values
-#     maxVals = np.flip(df_sort.index[-rangePrint:].values)
-#     minStr = str(minVals)
-#     maxStr = str(maxVals)
-#     print("Min "+ cat + ": "+ minStr)
-#     #print(df_sort[cat].iloc[idxValsMin].values)
-#     print("Max "+ cat + ": "+ maxStr)
+    # for cat in minMaxPlots:
+    #     df_sort = df_centers_downsel.sort_values(by=[cat],ascending = True)
+    #     minPlots[cat] = df_sort.iloc[0]
+    #     maxPlots[cat] = df_sort.iloc[-1]
+    #     #print(df_sort.index)
+    #     clustersUseValues = clustersUse.index.values
+    #     minVals = df_sort.index[0:rangePrint].values
+    #     maxVals = np.flip(df_sort.index[-rangePrint:].values)
+    #     minStr = str(minVals)
+    #     maxStr = str(maxVals)
+    #     print("Min "+ cat + ": "+ minStr)
+    #     #print(df_sort[cat].iloc[idxValsMin].values)
+    #     print("Max "+ cat + ": "+ maxStr)
 
 
 
