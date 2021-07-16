@@ -91,7 +91,8 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
         plHandle = sp.playlist_items(plID,offset = offset) 
         tracksNew = [item["track"] for item in plHandle["items"]]
         tracksSave = tracksSave + tracksNew
-        
+
+        tracksNew = list(filter(None,tracksNew))
         newIDs = [item["id"]for item in tracksNew if item["id"]]
         trackIds = trackIds + newIDs
 
@@ -224,6 +225,40 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
                 sp.playlist_add_items(playID, idsProc[0:])
                 midBreak = True
 
+
+def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
+    dw_ids = getPlaylistIDs(sp,playlistSearch)
+    dw_ids = list(filter(None,dw_ids))
+    dw_ids = [elt for elt in dw_ids if elt!='37i9dQZEVXcScWD9gb8qCj']
+
+    print(dw_ids)
+    trackIds = []
+    for playID in dw_ids:
+        tmp= getTracksFromPlaylist(sp,playID,False,False)
+        trackIds = trackIds + tmp
+
+    print("Num PL: "+ str(len(dw_ids)))
+    print("Num Track IDs:" + str(len(trackIds)))
+
+    # If you don't care about order then use a set instead, but I do - Max
+    trackIdsUnique = list(dict.fromkeys(trackIds))
+    print("Number of unique tracks: " + str(len(trackIdsUnique)))
+
+    # Remove blacklisted tracks
+    pl_id = getPlaylistID(sp,playlistRemove)
+    trackIds_rm = getTracksFromPlaylist(sp,pl_id,False,False)
+    for idVal in trackIds_rm:
+        try:
+            trackIdsUnique.remove(idVal)
+        except:
+            pass
+
+    indOut = removeSavedTracks(sp,trackIdsUnique)
+    tracksOut = [trackIdsUnique[idx] for idx in indOut]
+    print("Num tracks in playlist: "+str(len(tracksOut)))
+    #### TODO: understand why this is losing some of the tracks.
+    createPlaylist(sp,playlistTitle,tracksOut)
+
 # removeSavedTracks(sp,trackIDs): Given a list of track IDs, return the indices of tracks that haven't been saved into the users library yet.
 def removeSavedTracks(sp,trackIDs):
     divVal = 30 #arbitrary, must be 50 or less.
@@ -247,7 +282,15 @@ def removeSavedTracks(sp,trackIDs):
     return indOut[0]
 
 def removeTracksFromPlaylist(sp,plID,trackIDs):
-    sp.playlist_remove_all_occurrences_of_items(plID,trackIDs)
+    nRemove = int(np.ceil(len(trackIDs)/100))
+    nTracks = len(trackIDs)
+    for elt in range(nRemove):
+        nTracksRemove = min(100,nTracks)
+#        print(nTracksRemove)
+#        print(trackIDs[elt*100:elt*100+nTracksRemove])
+        print(trackIDs[elt*100+nTracksRemove-1])
+        sp.playlist_remove_all_occurrences_of_items(plID,trackIDs[elt*100:elt*100+nTracksRemove])
+        nTracks -= nTracksRemove
 
 
 '''

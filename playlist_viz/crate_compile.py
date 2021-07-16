@@ -13,6 +13,7 @@ def crateCompile(fid_in="pkl_vals/crates_compiled.pkl",searchIDs=["/* ","The Dow
     ## TODO: additional playlist age filter for drawing playlists.
     for playlistSearch in searchIDs:
         pl_ids = si.getPlaylistIDs(sp,playlistSearch)
+        print(pl_ids)
         for playID in pl_ids:
             print(playID)
             tmp1,tmp2 = si.getTracksFromPlaylist(sp,playID,True,True)

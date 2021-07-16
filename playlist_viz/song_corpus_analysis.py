@@ -56,6 +56,8 @@ def analyseSongCorpus(rangeClusterSearch=[3600,3650],showPlot=False,poolSize=30e
     if projectDown:
         # Read saved pickle file from crate_compile script.
         df_pool = pd.read_pickle(fid_in)
+        print(df_pool.shape)
+
         # Apply preprocessing.        
         df_pool = df_pool[df_pool["Duration_ms"] > songLenMin*1e3]
         print(df_pool.columns)
@@ -67,7 +69,7 @@ def analyseSongCorpus(rangeClusterSearch=[3600,3650],showPlot=False,poolSize=30e
         df_pool = df_pool.sample(frac=fracPool)
         df_clust_pool = df_pool[featuresPull] 
         df_clust_pool = df_clust_pool.dropna(axis='rows')
-        
+        print(df_clust_pool.shape)
         poolReduced = dimReduce(df_clust_pool,3)    
         fid_poolRed = fid_poolRed+"_3d"
 
