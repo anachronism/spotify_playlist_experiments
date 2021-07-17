@@ -148,6 +148,23 @@ def getTopGenres(sp,df_in):
     #artistObjs = sp.Artists(df_in["Artist URI"])    
 
 
+# get tracks with set Tempo
+def getTracksWithTempo(df_in,bpmRange,checkDouble = True):
+    df_tmp = df_in[df_in["Tempo"] >= bpmRange[0]]
+    df_out = df_tmp[df_tmp["Tempo"] <= bpmRange[1]]
+    if checkDouble:
+        df_tmp = df_in[df_in["Tempo"]>= bpmRange[0]*2]
+        df_z2 = df_tmp[df_tmp["Tempo"] <= bpmRange[1]*2]
+
+        col_tmp = df_z2["Tempo"]
+        col_tmp /= 2
+        df_z2["Tempo"] = col_tmp
+
+        df_out = pd.concat((df_out,df_z2))
+
+    df_out = df_out.sort_values(by=["Tempo"],ascending = True)
+    return df_out
+    
 '''
 ## Playlist management
 '''

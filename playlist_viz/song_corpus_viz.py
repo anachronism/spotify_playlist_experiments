@@ -36,15 +36,19 @@ import utils
 import numpy as np
 import pandas as pd
 
+
+cluster_type = "pulse" #"crate"
+
+
 sp = initSpotipy("playlist-modify-private")
 
 nTableShow = 15
 
 model_folder = "pkl_vals"
 
-fid_clustering_thresh = "/".join((model_folder,"clusters_thresh.pkl"))
-fid_clustering = "/".join((model_folder,"clusters.pkl"))
-fid_clusterNum = "/".join((model_folder,"nPlaylists"))
+fid_clustering_thresh = "/".join((model_folder,cluster_type+"_clusters_thresh.pkl"))
+fid_clustering = "/".join((model_folder,cluster_type+"_clusters.pkl"))
+fid_clusterNum = "/".join((model_folder,cluster_type+"_nPlaylists"))
 
 nPlayExport = 5
 #minPlSize = 7 # minimum playlist size.
