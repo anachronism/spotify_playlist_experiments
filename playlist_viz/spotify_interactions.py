@@ -24,6 +24,24 @@ def initSpotipy(scope):
     return spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope,client_id=CLIENT_ID,client_secret=CLIENT_SECRET,redirect_uri=REDIRECT_URI))
 
 
+'''
+Higher level functions
+'''
+def searchPlaylistForTempo(sp,plName,bpmRange,checkDouble=True):
+    pl_id = getPlaylistID(sp,plName)
+    if pl_id == -1:
+        print("PLAYLIST NOT FOUND")  
+        return -1
+    else:  
+        tracks_pl,analysis_pl = getTracksFromPlaylist(sp,pl_id,True,True)
+        print(bpmRange)
+        df_pl = tracksToDF(tracks_pl,analysis_pl,False)
+        df_out = getTracksWithTempo(df_pl,bpmRange)
+        return df_out
+
+'''
+Useful things.
+'''
 ## ID acquisitions
 # getPlaylistID(sp,strName): With sp handle, get the first playlist that has a title that directly matches the provided string.
 def getPlaylistID(sp,strName):    
@@ -110,6 +128,37 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
         return trackOut
 
 
+# Sort df in the following manner. Group by bpm
+def djSort(df_in,tempoRange,keyRange):
+    df_tempoSort = getTracksWithTempo(df_in,tempoRange)
+
+    # These values are under the assumption that the spotify notation is in "Major" keys. Looks like it doesn't matter immediately, can check though.
+    # mapping keys to the way traktor sorts keys, so that close values are easier to mix into.
+    dict_keymap = {
+        0:1,
+        1:8,
+        2:3,
+        3:10,
+        4:5,
+        5:12,
+        6:7,
+        7:2,
+        8:9,
+        9:4,
+        10:11,
+        11:6
+    }
+    df_tempoSort["DJ Key"] = df_tempoSort["Key"].map(dict_keymap) 
+    
+    tempo_vals = df_tempoSort["Tempo"]
+    tempo_vals = np.floor(tempo_vals)
+    tempo_vals_unique = np.unique(tempo_vals)
+
+    df_out = pd.DataFrame()
+    for t_val in tempo_vals_unique:
+        df_add = getTracksWithinRange(df_tempoSort[tempo_vals==t_val],"DJ Key",keyRange)
+        df_out = pd.concat((df_out,df_add))
+    return df_out
 ''' 
 Playlist data analysis stuff. df_in
 '''
@@ -148,6 +197,14 @@ def getTopGenres(sp,df_in):
     #artistObjs = sp.Artists(df_in["Artist URI"])    
 
 
+#get tracks within certain range of values 
+def getTracksWithinRange(df_in,category,catRange):
+    df_tmp = df_in[df_in[category] >= catRange[0]]
+    df_out = df_tmp[df_tmp[category] <= catRange[1]]
+    df_out = df_out.sort_values(by=[category],ascending = True)
+    return df_out
+
+
 # get tracks with set Tempo
 def getTracksWithTempo(df_in,bpmRange,checkDouble = True):
     df_tmp = df_in[df_in["Tempo"] >= bpmRange[0]]
@@ -164,7 +221,8 @@ def getTracksWithTempo(df_in,bpmRange,checkDouble = True):
 
     df_out = df_out.sort_values(by=["Tempo"],ascending = True)
     return df_out
-    
+
+
 '''
 ## Playlist management
 '''
