@@ -5,22 +5,20 @@ from crate_compile import crateCompile
 from song_corpus_analysis import analyseSongCorpus
 import spotify_interactions as si
 
-# plName1 = "RR Remove"
-# plName2 = "RR Listen through"
+import datetime
+today=datetime.date.today() 
+recentGenDW = today-datetime.timedelta(days=today.weekday())
+dwDate = recentGenDW.strftime("%m/%d/%Y")
 
-# plName1 = "Remove from combined DW"
-# plName2 = "Combined DW for the Week of 06/15/2021"
-
-# plName1 = "downselect_downselect_remove"
-# plName2 = "downselect_downselect_listen"
-
+edgeDate = "06/25/2021"
+pulseDate = "07/15/2021"
 
 plNames = [
-        ["Remove from combined DW","Combined DW for the Week of 07/12/2021"],
+        ["Remove from combined DW","Combined DW for the Week of "+dwDate],
         ["RR Remove","RR Listen through"],  
         ["downselect_downselect_remove","downselect_downselect_listen"], 
-        ["Edge Playlist Clear","Combined Edge Playlists"],
-        ["Pulse Playlist Clear", "Combined Pulse Playlists 07/15/2021"]]
+        ["Edge Playlist Clear","Combined Edge Playlists "+edgeDate],
+        ["Pulse Playlist Clear", "Combined Pulse Playlists "+pulseDate]]
 
 
 sp = si.initSpotipy("playlist-modify-private")

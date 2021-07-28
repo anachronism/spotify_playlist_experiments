@@ -14,6 +14,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
+import random 
+from math import floor
 ## Spotipy interactions
 # initSpotipy(scope): Initialize the spotipy handle with the scope provided. Note, you must use your own secretsLocal file.
 def initSpotipy(scope):
@@ -27,6 +29,17 @@ def initSpotipy(scope):
 '''
 Higher level functions
 '''
+def removeUnplayableSongs(sp,plNames):
+    pl_id = getPlaylistID(sp,plName)
+    if pl_id == -1:
+        print("PLAYLIST NOT FOUND")  
+        return -1
+    else:  
+        tracks_pl,analysis_pl = getTracksFromPlaylist(sp,pl_id,True,True)
+        df_pl = tracksToDF(tracks_pl,analysis_pl,False)
+        print(df_pl["market"])
+        df_remove = df_pl[df_pl["market"].isin(["us"])]                
+
 def searchPlaylistForTempo(sp,plName,bpmRange,checkDouble=True):
     pl_id = getPlaylistID(sp,plName)
     if pl_id == -1:
@@ -34,7 +47,6 @@ def searchPlaylistForTempo(sp,plName,bpmRange,checkDouble=True):
         return -1
     else:  
         tracks_pl,analysis_pl = getTracksFromPlaylist(sp,pl_id,True,True)
-        print(bpmRange)
         df_pl = tracksToDF(tracks_pl,analysis_pl,False)
         df_out = getTracksWithTempo(df_pl,bpmRange)
         return df_out
@@ -91,8 +103,13 @@ def getPlaylistIDs(sp,strName):
 # With sp handle and playlist ID, return list with info. if ret_track_info is True, it will return the whole song structure,
 # otherwise it returns a list of track IDs. If ret_af is True it also returns the audio-features object for each track.
 def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
+
+    currUser = sp.current_user()
+    # print(currUser)
+    currMarket=currUser["country"]
+
     offset = 0
-    plHandle = sp.playlist_items(plID,offset = offset)
+    plHandle = sp.playlist_items(plID,offset = offset,market=currMarket)
     nTracks = plHandle["total"]
     trackIds = []
     #trackURIs = []
@@ -106,7 +123,8 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
         if nextUp != 1:
             offset = offset + plHandle["limit"]
         # save tracks.
-        plHandle = sp.playlist_items(plID,offset = offset) 
+
+        plHandle = sp.playlist_items(plID,offset = offset,market=currMarket) 
         tracksNew = [item["track"] for item in plHandle["items"]]
         tracksSave = tracksSave + tracksNew
 
@@ -159,6 +177,7 @@ def djSort(df_in,tempoRange,keyRange):
         df_add = getTracksWithinRange(df_tempoSort[tempo_vals==t_val],"DJ Key",keyRange)
         df_out = pd.concat((df_out,df_add))
     return df_out
+
 ''' 
 Playlist data analysis stuff. df_in
 '''
@@ -290,7 +309,6 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
         midBreak= False    
         while len(idsProc) and (not midBreak): 
             if len(idsProc) > 100:
-                print(len(idsProc[0:100]))
                 sp.playlist_add_items(playID, idsProc[0:100])
                 idsProc = idsProc[100:]
                # print("here0")
@@ -334,6 +352,29 @@ def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
     #### TODO: understand why this is losing some of the tracks.
     createPlaylist(sp,playlistTitle,tracksOut)
 
+
+#samplePlaylists: from a playlist, generate nPlaylists randomly drawn playlists from it, and remove the songs
+def samplePlaylists(sp, plName,nPlaylists,nSongsPerPlaylist,removeTracks=True):
+    pl_id = getPlaylistID(sp,plName)
+    tmp1 = getTracksFromPlaylist(sp,pl_id,False,False)
+
+    nSample = min(nPlaylists*nSongsPerPlaylist, len(tmp1))
+    if nSample >= nPlaylists:
+        valsSample = random.sample(population=range(len(tmp1)),k=nSample)
+        playlistLen = floor(nSample/nPlaylists)
+        for idx in range(nPlaylists):
+            idxUse = valsSample[idx*playlistLen:(idx+1)*playlistLen]
+            tracksUse = [tmp1[idx2] for idx2 in idxUse]
+            createPlaylist(sp,plName+" subsampling: "+ str(idx+1),tracksUse,False)
+            if removeTracks:
+                removeTracksFromPlaylist(sp,pl_id,tracksUse)
+    elif nSample > 0:
+        createPlaylist(sp,plName+" subsampling: ",tmp1,False)
+        if removeTracks:
+            removeTracksFromPlaylist(sp,pl_id,tmp1)
+                
+
+
 # removeSavedTracks(sp,trackIDs): Given a list of track IDs, return the indices of tracks that haven't been saved into the users library yet.
 def removeSavedTracks(sp,trackIDs):
     divVal = 30 #arbitrary, must be 50 or less.
@@ -362,8 +403,7 @@ def removeTracksFromPlaylist(sp,plID,trackIDs):
     for elt in range(nRemove):
         nTracksRemove = min(100,nTracks)
 #        print(nTracksRemove)
-#        print(trackIDs[elt*100:elt*100+nTracksRemove])
-        print(trackIDs[elt*100+nTracksRemove-1])
+        # print(trackIDs[elt*100:elt*100+nTracksRemove])
         sp.playlist_remove_all_occurrences_of_items(plID,trackIDs[elt*100:elt*100+nTracksRemove])
         nTracks -= nTracksRemove
 
@@ -424,10 +464,13 @@ def saveTrackDF(df,filepath):
     dfTmp.to_csv(filepath)
 
 # Exporting playlist info to CSV
-def savePlaylistToCSV(sp,plName,filepath):
-    plID = getPlaylistID(plName)
+def savePlaylistToCSV(sp,plName,filepath,sortTempo=False):
+    plID = getPlaylistID(sp,plName)
     tracksSave,audioFeatures = getTracksFromPlaylist(sp,plID)
     df_save = tracksToDF(tracksSave,audioFeatures)
+    if sortTempo:
+        df_save = getTracksWithTempo(df_save,[0, 300],False)
+
     saveTrackDF(df_save,filepath)
     
 
