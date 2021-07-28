@@ -106,7 +106,7 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
 
     currUser = sp.current_user()
     # print(currUser)
-    currMarket=currUser["country"]
+    currMarket="US"#currUser["country"]
 
     offset = 0
     plHandle = sp.playlist_items(plID,offset = offset,market=currMarket)
