@@ -4,7 +4,7 @@ import spotify_interactions as si
 
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")# 
-tempo_range = [80,90]#[108,110]
+tempo_range = [130,135]#[108,110]
 key_range = [1,12] #12 total options.
 
 runMode = 1
@@ -25,7 +25,7 @@ if runMode == 0:
 
 elif runMode == 1:
     ## search through specific playlist
-    pl_name = "Genre Selects: Hip Hop"#"Combined Pulse Playlists 07/15/2021"
+    pl_name = "The Downselect, July 2021 Weeks 1-2"#"The Downselect, 2021"#"Combined Pulse Playlists 07/15/2021"
     playlist_title = pl_name + ", From " + str(tempo_range[0]) + " to " + str(tempo_range[1]) + " BPM, Keys " + str(key_range[0]) + " to "+ str(key_range[1])
     df_out = si.searchPlaylistForTempo(sp,pl_name,tempo_range)
     df_out = si.djSort(df_out,tempo_range,key_range)

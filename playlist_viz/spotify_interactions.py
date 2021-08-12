@@ -146,6 +146,25 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
         return trackOut
 
 
+def djMapKey(dfIn):
+    dict_keymap = {
+        0:1,
+        1:8,
+        2:3,
+        3:10,
+        4:5,
+        5:12,
+        6:7,
+        7:2,
+        8:9,
+        9:4,
+        10:11,
+        11:6
+    }
+    dfOut = dfIn
+    dfOut["DJ Key"] = dfOut["Key"].map(dict_keymap) 
+    return dfOut
+
 # Sort df in the following manner. Group by bpm
 def djSort(df_in,tempoRange,keyRange):
     df_tempoSort = getTracksWithTempo(df_in,tempoRange)
@@ -166,8 +185,8 @@ def djSort(df_in,tempoRange,keyRange):
         10:11,
         11:6
     }
-    df_tempoSort["DJ Key"] = df_tempoSort["Key"].map(dict_keymap) 
-    
+
+#    df_tempoSort = djMapKey(df_tempoSort)    
     tempo_vals = df_tempoSort["Tempo"]
     tempo_vals = np.floor(tempo_vals)
     tempo_vals_unique = np.unique(tempo_vals)
@@ -431,6 +450,7 @@ def tracksToDF(tracks,af,artistList = False):
 
     trackDict = {
         "Title": [x["name"] for x in tracks],
+        "Track ID":[x["id"] for x in tracks],
         "Song URI": [x["uri"] for x in tracks],
         "Artist":artistName,
         "Artist URI": artistURI,
@@ -449,7 +469,9 @@ def tracksToDF(tracks,af,artistList = False):
         "Valence":[x["valence"] for x in af],
         
     }
-    return pd.DataFrame.from_dict(trackDict)
+    retDF = pd.DataFrame.from_dict(trackDict)
+    retDF = djMapKey(retDF) 
+    return retDF
 
 
 '''
