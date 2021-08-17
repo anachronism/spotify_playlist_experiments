@@ -7,13 +7,31 @@ import spotify_interactions as si
 from math import ceil,floor
 import random 
 import datetime
+
 today=datetime.date.today() 
 
-sp = si.initSpotipy("playlist-read-private playlist-modify-private")# 
-mode = "recsQuery"
+sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")# 
+mode = "recDateUpdate"
+
+if mode == "recDateUpdate":
+
+    # createNewPl = (today.day == 1)
+    # idsAdjust = si.cyclePlaylist(sp,"The Downselect",nDaysCycle = 7,removeTracks=True,newPl= createNewPl)
+    # if idsAdjust:
+    #    si.addToPlaylist(sp,"downselect_downselect_listen",idsAdjust)
+    now = datetime.datetime.now()
+    dtString=now.strftime("%m/%d/%Y")
+
+    playlistTitle = "Combined RR for the Week of " + dtString
+    playlistSearch = "Release Radar"
+    playlistRemove = "Discovery Avoid"
+    si.compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle)
+            ### TODO: Update this to also update the edge playlists with new additions.
 
 
-if mode == "djRadioTest":
+
+
+elif mode == "djRadioTest":
     songSearch = "One More Dance"
     artist= "ADO"
     # find track 

@@ -8,14 +8,16 @@ import spotify_interactions as si
 import datetime
 today=datetime.date.today() 
 recentGenDW = today-datetime.timedelta(days=today.weekday())
+recentGenRR = today-datetime.timedelta(days=today.weekday())-datetime.timedelta(days=3)
 dwDate = recentGenDW.strftime("%m/%d/%Y")
-
+rrDate = recentGenRR.strftime("%m/%d/%Y")
 edgeDate = "06/25/2021"
 pulseDate = "07/15/2021"
 
+
 plNames = [
         ["Remove from combined DW","Combined DW for the Week of "+dwDate],
-        ["RR Remove","RR Listen through"],  
+        ["RR Remove","Combined RR for the Week of "+ rrDate],  
         ["downselect_downselect_remove","downselect_downselect_listen"], 
         ["Edge Playlist Clear","Combined Edge Playlists "+edgeDate],
         ["Pulse Playlist Clear", "Combined Pulse Playlists "+pulseDate]]

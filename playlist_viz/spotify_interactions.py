@@ -12,7 +12,7 @@ from spotipy.oauth2 import SpotifyOAuth
 import secretsLocal ### NOTE: Must create this file yourself. Make functions that return the id and secret.
 import pandas as pd 
 import numpy as np
-from datetime import datetime
+from datetime import datetime,date,timedelta
 
 import random 
 from math import floor
@@ -102,7 +102,7 @@ def getPlaylistIDs(sp,strName):
 # getTracksFromPlaylist(sp,plID,ret_track_info,ret_af):
 # With sp handle and playlist ID, return list with info. if ret_track_info is True, it will return the whole song structure,
 # otherwise it returns a list of track IDs. If ret_af is True it also returns the audio-features object for each track.
-def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
+def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True, ret_pl_info = False):
 
     currUser = sp.current_user()
     # print(currUser)
@@ -116,6 +116,7 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
     audioFeatures = []
     audioAnalysis = []
     tracksSave = []
+    trackDates_save = []
     ret_track_info = ret_track_info
     ret_af = ret_af
     nextUp = 1
@@ -126,7 +127,9 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
 
         plHandle = sp.playlist_items(plID,offset = offset,market=currMarket) 
         tracksNew = [item["track"] for item in plHandle["items"]]
+        trackDates = [item["added_at"] for item in plHandle["items"]]
         tracksSave = tracksSave + tracksNew
+        trackDates_save += trackDates 
 
         tracksNew = list(filter(None,tracksNew))
         newIDs = [item["id"]for item in tracksNew if item["id"]]
@@ -137,13 +140,17 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True):
         nextUp = plHandle["next"]
 
     if ret_track_info:
-        trackOut = tracksSave
+        retVals = [tracksSave]
+#        trackOut = tracksSave
     else:
-        trackOut = trackIds#trackURIs
+        retVals = [trackIds]
+#        trackOut = trackIds#trackURIs
     if ret_af:
-        return trackOut,audioFeatures
-    else:
-        return trackOut
+        retVals += [audioFeatures]
+    if ret_pl_info:
+        retVals += [trackDates_save]
+
+    return tuple(retVals)
 
 
 def djMapKey(dfIn):
@@ -171,20 +178,6 @@ def djSort(df_in,tempoRange,keyRange):
 
     # These values are under the assumption that the spotify notation is in "Major" keys. Looks like it doesn't matter immediately, can check though.
     # mapping keys to the way traktor sorts keys, so that close values are easier to mix into.
-    dict_keymap = {
-        0:1,
-        1:8,
-        2:3,
-        3:10,
-        4:5,
-        5:12,
-        6:7,
-        7:2,
-        8:9,
-        9:4,
-        10:11,
-        11:6
-    }
 
 #    df_tempoSort = djMapKey(df_tempoSort)    
     tempo_vals = df_tempoSort["Tempo"]
@@ -338,15 +331,25 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
                 midBreak = True
 
 
+# Note: Currently assuming list of ID strings as input for objin.
+def addToPlaylist(sp,playlistName,objIn):
+    plID = getPlaylistID(sp,playlistName)
+
+    numRun = int(floor(len(objIn)/100))
+
+    for elt in range(numRun):
+        sp.playlist_add_items(plID,objIn[elt*numRun:elt*numRun+100])
+
+    sp.playlist_add_items(plID,objIn[numRun*100:])
+
 def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
     dw_ids = getPlaylistIDs(sp,playlistSearch)
     dw_ids = list(filter(None,dw_ids))
     dw_ids = [elt for elt in dw_ids if elt!='37i9dQZEVXcScWD9gb8qCj']
 
-    print(dw_ids)
     trackIds = []
     for playID in dw_ids:
-        tmp= getTracksFromPlaylist(sp,playID,False,False)
+        (tmp,)= getTracksFromPlaylist(sp,playID,False,False)
         trackIds = trackIds + tmp
 
     print("Num PL: "+ str(len(dw_ids)))
@@ -358,7 +361,7 @@ def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
 
     # Remove blacklisted tracks
     pl_id = getPlaylistID(sp,playlistRemove)
-    trackIds_rm = getTracksFromPlaylist(sp,pl_id,False,False)
+    (trackIds_rm,) = getTracksFromPlaylist(sp,pl_id,False,False)
     for idVal in trackIds_rm:
         try:
             trackIdsUnique.remove(idVal)
@@ -375,7 +378,7 @@ def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
 #samplePlaylists: from a playlist, generate nPlaylists randomly drawn playlists from it, and remove the songs
 def samplePlaylists(sp, plName,nPlaylists,nSongsPerPlaylist,removeTracks=True):
     pl_id = getPlaylistID(sp,plName)
-    tmp1 = getTracksFromPlaylist(sp,pl_id,False,False)
+    (tmp1,) = getTracksFromPlaylist(sp,pl_id,False,False)
 
     nSample = min(nPlaylists*nSongsPerPlaylist, len(tmp1))
     if nSample >= nPlaylists:
@@ -393,6 +396,36 @@ def samplePlaylists(sp, plName,nPlaylists,nSongsPerPlaylist,removeTracks=True):
             removeTracksFromPlaylist(sp,pl_id,tmp1)
                 
 
+def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True):
+    today=date.today() 
+    pl_id = getPlaylistID(sp,playlistName)
+    tr_ids,tr_times = getTracksFromPlaylist(sp,pl_id,ret_track_info = False,ret_af = False,ret_pl_info=True)
+    timeFormatStr = "%Y-%m-%dT%H:%M:%SZ"
+    tr_times_datetime = [datetime.strptime(elt,timeFormatStr) for elt in tr_times]
+
+    dWeekAgo = today - timedelta(days=nDaysCycle)
+    idsAdjust = []
+    # def not pythonic but whatever at the moment.
+    for (idx,elt) in enumerate(tr_times_datetime):
+        if dWeekAgo > elt.date(): 
+            idsAdjust += [tr_ids[idx]]
+
+    date_str_add = datetime.strftime(today,"%B %Y")
+    string_add = playlistName + ", " + date_str_add
+    if idsAdjust: 
+        if newPl:
+            # create playlist\
+            createPlaylist(sp,string_add,idsAdjust,False)
+        else:
+            addToPlaylist(sp,string_add,idsAdjust)
+
+        if removeTracks:
+            removeTracksFromPlaylist(sp,pl_id,idsAdjust)
+
+        return idsAdjust
+    else: 
+        print("No tracks to remove.")
+        return []
 
 # removeSavedTracks(sp,trackIDs): Given a list of track IDs, return the indices of tracks that haven't been saved into the users library yet.
 def removeSavedTracks(sp,trackIDs):
