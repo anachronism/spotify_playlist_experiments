@@ -17,7 +17,8 @@ FLAG_RUN = True
 ITER_MAX = 100
 
 ### TODO: check how keys are mapped.
-runBools = [1,1,1,1,1]
+runBools = np.ones((5,))
+#runBools = [1,1,1,1,1]
 runCompileFcns = runBools[0]
 runDownselCycle = runBools[1]
 runCrateCompile = runBools[2]
@@ -149,10 +150,6 @@ if FLAG_RUN:
                 iterCnt += 1
 
             recsDF = si.djSort(recsDF,tempoRange,keyRange)
-            print(recsDF)
-            # print(recsDF["DJ Key"])
-            # print(recsDF["Key"])
-            # print(keyRange)
             si.createPlaylist(sp,"DJ Pull "+ djDate+" " + plSearch,recsDF,incAnalysis = False)
         except:
             print("creation failed!")

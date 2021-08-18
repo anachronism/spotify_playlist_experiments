@@ -451,6 +451,35 @@ def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True):
         print("No tracks to remove.")
         return []
 
+def getSimilarPlaylist(sp,plSearch,targetSampleSize,genSameSize=False,targetPopularity = 50,popRange=[0,100],tempoRange=[0,200]):
+    usePopRange = True
+    recIDs = []
+    pl_id = getPlaylistID(sp,plSearch)
+    trackDict,__ = getTracksFromPlaylist(sp,pl_id,True,True)
+    trackIDs  =  [item["id"] for item in trackDict if item["id"]]
+    tracksIDs = random.shuffle(trackIDs)
+
+    if genSameSize:
+        nQuery = floor(len(trackIDs)/targetSampleSize)
+    else:
+        nQuery = floor(len(trackIDs)/5)
+
+    recIDsUnique=[0]
+    while len(recIDsUnique) < targetSampleSize:
+        for idx in range(nQuery):
+            if usePopRange:
+                recRet = sp.recommendations(seed_tracks=trackIDs[idx*5:(idx+1)*5],limit=targetSampleSize,min_tempo=tempoRange[0],max_tempo = tempoRange[1],market="US",min_popularity=popRange[0],max_popularity=popRange[1])
+            else:
+                recRet = sp.recommendations(seed_tracks=trackIDs[idx*5:(idx+1)*5],limit=targetSampleSize,min_tempo=tempoRange[0],max_tempo = tempoRange[1],market="US",target_popularity=targetPopularity)
+            recTracks= recRet["tracks"]
+            recIDs = recIDs + [elt["id"] for elt in recTracks if ("US" in elt["available_markets"])]
+            recIDsUnique = list(dict.fromkeys(recIDs))
+            if len(recIDsUnique)> targetSampleSize:
+                break
+
+    createPlaylist(sp,"Similar to "+plSearch,recIDsUnique,incAnalysis = False)
+
+
 # removeSavedTracks(sp,trackIDs): Given a list of track IDs, return the indices of tracks that haven't been saved into the users library yet.
 def removeSavedTracks(sp,trackIDs):
     divVal = 30 #arbitrary, must be 50 or less.
