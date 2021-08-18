@@ -457,8 +457,7 @@ def getSimilarPlaylist(sp,plSearch,targetSampleSize,genSameSize=False,targetPopu
     pl_id = getPlaylistID(sp,plSearch)
     trackDict,afDict = getTracksFromPlaylist(sp,pl_id,True,True)
     trackIDs  =  [item["id"] for item in trackDict if item["id"]]
-    tracksIDs = random.shuffle(trackIDs)
-
+    random.shuffle(trackIDs)
     if genSameSize:
         nQuery = floor(len(trackIDs)/targetSampleSize)
     else:
@@ -477,8 +476,10 @@ def getSimilarPlaylist(sp,plSearch,targetSampleSize,genSameSize=False,targetPopu
             if len(recIDsUnique)> targetSampleSize:
                 break
 
+    random.shuffle(recIDsUnique)
+    recIDsUse = recIDsUnique[0:50]
     ### TODO: get recTracks into recIDsUnique format, get sp.audio_features() of the ids to djsort similar playlists.
-    createPlaylist(sp,"Similar to "+plSearch,recIDsUnique,incAnalysis = False)
+    createPlaylist(sp,"Similar to "+plSearch,recIDsUse,incAnalysis = False)
 
 
 # removeSavedTracks(sp,trackIDs): Given a list of track IDs, return the indices of tracks that haven't been saved into the users library yet.
