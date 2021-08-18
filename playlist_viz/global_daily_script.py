@@ -30,7 +30,7 @@ runTempoRecs = runBools[4]
 now = datetime.datetime.now()
 dtString=now.strftime("%m/%d/%Y-")
 
-logging.basicConfig(filename='globalScript.log',encoding='utf-8',level=logging.DEBUG)
+logging.basicConfig(filename='globalScript.log',encoding='utf-8',level=logging.INFO) # debug will give me the spotipy debug too lol.
 logging.info("Global script run " + dtString)
 
 if FLAG_RUN:

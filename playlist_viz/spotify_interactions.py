@@ -455,7 +455,7 @@ def getSimilarPlaylist(sp,plSearch,targetSampleSize,genSameSize=False,targetPopu
     usePopRange = True
     recIDs = []
     pl_id = getPlaylistID(sp,plSearch)
-    trackDict,__ = getTracksFromPlaylist(sp,pl_id,True,True)
+    trackDict,afDict = getTracksFromPlaylist(sp,pl_id,True,True)
     trackIDs  =  [item["id"] for item in trackDict if item["id"]]
     tracksIDs = random.shuffle(trackIDs)
 
@@ -477,6 +477,7 @@ def getSimilarPlaylist(sp,plSearch,targetSampleSize,genSameSize=False,targetPopu
             if len(recIDsUnique)> targetSampleSize:
                 break
 
+    ### TODO: get recTracks into recIDsUnique format, get sp.audio_features() of the ids to djsort similar playlists.
     createPlaylist(sp,"Similar to "+plSearch,recIDsUnique,incAnalysis = False)
 
 
