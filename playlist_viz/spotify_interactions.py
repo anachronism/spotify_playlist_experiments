@@ -89,11 +89,11 @@ def getPlaylistIDs(sp,strName):
     while not (currVal["next"] is None):
         currVal = sp.current_user_playlists(limit=50, offset=offset)
         plList = currVal["items"]
-#        print(plList[0].keys())
 
         tmp = [item for item in plList if (strName.lower() in item["name"].lower()) ]  
         for elt in tmp:
             idsRet.append(elt["id"])
+            # print(elt["name"])
 
         offset = offset +currVal["limit"]
 
@@ -154,7 +154,7 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True, ret_pl_in
 
 
 def djMapKey(dfIn):
-    dict_keymap = {
+    dict_keymap_maj = {
         0:1,
         1:8,
         2:3,
@@ -168,8 +168,31 @@ def djMapKey(dfIn):
         10:11,
         11:6
     }
-    dfOut = dfIn
-    dfOut["DJ Key"] = dfOut["Key"].map(dict_keymap) 
+
+    dict_keymap_min = {
+            0:10,
+            1:5,
+            2:12,
+            3:7,
+            4:2,
+            5:9,
+            6:4,
+            7:11,
+            8:6,
+            9:1,
+            10:8,
+            11:3
+        }    
+
+    df_major = dfIn[dfIn["Mode"] == 1]
+    df_minor = dfIn[dfIn["Mode"] == 0]
+    df_maj_out = df_major
+    df_min_out = df_minor
+
+    df_maj_out["DJ Key"] = df_major["Key"].map(dict_keymap_maj)
+    df_min_out["DJ Key"] = df_minor["Key"].map(dict_keymap_min)
+
+    dfOut = pd.concat([df_maj_out,df_min_out],sort=False)
     return dfOut
 
 # Sort df in the following manner. Group by bpm
@@ -186,6 +209,7 @@ def djSort(df_in,tempoRange,keyRange):
 
     df_out = pd.DataFrame()
     for t_val in tempo_vals_unique:
+        ### TODO: low priority. Add additional major/minor sorting here.
         df_add = getTracksWithinRange(df_tempoSort[tempo_vals==t_val],"DJ Key",keyRange)
         df_out = pd.concat((df_out,df_add))
     return df_out
@@ -494,7 +518,8 @@ def tracksToDF(tracks,af,artistList = False):
         "Energy":[x["energy"] for x in af],
         "Instrumentalness":[x["instrumentalness"] for x in af],
         "Key":[x["key"] for x in af],
-        "Liveness":[x["key"] for x in af],
+        "Mode":[x["mode"] for x in af],
+        "Liveness":[x["liveness"] for x in af],
         "Loudness":[x["loudness"] for x in af],
         "Speechiness":[x["speechiness"] for x in af],
         "Tempo":[x["tempo"] for x in af],

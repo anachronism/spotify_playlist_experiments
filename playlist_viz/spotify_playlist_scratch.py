@@ -11,7 +11,7 @@ import datetime
 today=datetime.date.today() 
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")# 
-mode = "recDateUpdate"
+mode = "djRadioTest"
 
 if mode == "recDateUpdate":
 
@@ -32,12 +32,32 @@ if mode == "recDateUpdate":
 
 
 elif mode == "djRadioTest":
-    songSearch = "One More Dance"
-    artist= "ADO"
-    # find track 
-    # get tempo, key
-    # set search range parameters to center around tempo and key.
-    # rest of the gen stuff.
+    today = datetime.date.today() 
+    djDate = today.strftime("%m/%d/%Y")
+
+    plSearch="The Downselect, 2021"#"The Downselect, July 2021 Week 3"#"The Downselect"
+
+    targetSampleSize = 50 #20
+    tempoDelta = 10
+    keyDelta = 3#6
+    popRange = [0, 100]
+    
+    sp = si.initSpotipy("playlist-read-private playlist-modify-private")# 
+
+    pl_id = si.getPlaylistID(sp,plSearch)
+    trackDict,analysisDict = si.getTracksFromPlaylist(sp,pl_id,True,True)
+    trackDF  = si.tracksToDF(trackDict,analysisDict)
+    print(trackDF["Mode"])
+#     df_single = trackDF.sample(n=1)
+#     tempoRange = [-tempoDelta/2+ np.float64(df_single["Tempo"]), np.float64(tempoDelta/2+ df_single["Tempo"])] 
+#     key_dj = int(df_single["DJ Key"])
+#     keyRange = [key_dj ,keyDelta+key_dj]   ### NOTE: this doesn't account for edce case of key < 
+#     keyDiff = 12 - (keyDelta+key_dj)
+#     if keyDiff < 0:
+#         keyRange = [12-keyDelta,12]
+# #        seedDF = si.djSort(trackDF,tempoRange,keyRange)
+#     seedDF = si.djSort(trackDF,tempoRange,[1,12])
+
 elif mode == "recsQuery":
     ''' This set of code useful for testing the recommendation section'''
     # There's a lot of things that this can be used for (can limit tempo, key etc in rec search and use artists as target)
