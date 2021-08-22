@@ -11,9 +11,13 @@ import datetime
 today=datetime.date.today() 
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")# 
-mode = "recsQuery"
+mode = "updateEdge"
 
-if mode == "recDateUpdate":
+if mode == "updateEdge":
+    #update edge code goes here
+    pass
+
+elif mode == "recDateUpdate":
 
     # createNewPl = (today.day == 1)
     # idsAdjust = si.cyclePlaylist(sp,"The Downselect",nDaysCycle = 7,removeTracks=True,newPl= createNewPl)
