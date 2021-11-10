@@ -1,44 +1,57 @@
-import numpy as np 
+import numpy as np
 import pandas as pd
 import datetime
-import random 
+import random
 from math import floor
 
-import utils 
+import utils
 from crate_compile import crateCompile
 from song_corpus_analysis import analyseSongCorpus
 from spotify_interactions import createPlaylist,initSpotipy
-import spotify_interactions as si 
+import spotify_interactions as si
 import logging
 #Obviously since everything is written out it's not optimal.
-today=datetime.date.today() 
+today=datetime.date.today()
 
 FLAG_RUN = True
 ITER_MAX = 100
 
+runBools_sample = np.zeros((5,))
+runBools_sample[2] = 1
+
 ### TODO: check how keys are mapped.
-runBools = np.ones((5,))
-#runBools = [1,1,1,1,1]
+runBools_rotate_tempo = np.zeros((5,))
+runBools_rotate_tempo[0] = 1
+runBools_rotate_tempo[1] = 1
+runBools_rotate_tempo[3] = 1
+
+runBools_all = np.ones((5,))
+
+runBools = runBools_all
+
 runCompileFcns = runBools[0]
 runDownselCycle = runBools[1]
-runCrateCompile = runBools[2]
-runPlSample = runBools[3]
-runTempoRecs = runBools[4]
+
+runPlSample = runBools[2]
+plGenIdx = [0,1,2,3]
+# plGenIdx=[4,4]
+runTempoRecs = runBools[3]
+runCrateCompile = runBools[4]
+
 
 
 
 now = datetime.datetime.now()
-dtString=now.strftime("%m/%d/%Y-")
+dtString=now.strftime("%m/%d/%Y")
 
 logging.basicConfig(filename='globalScript.log',encoding='utf-8',level=logging.INFO) # debug will give me the spotipy debug too lol.
 logging.info("Global script run " + dtString)
 
 if FLAG_RUN:
-    sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")# 
-
+    sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read playlist-modify-public")#
 
     if runCompileFcns:
-        try:        
+        try:
             now = datetime.datetime.now()
             dtString=now.strftime("%m/%d/%Y")
 
@@ -55,28 +68,38 @@ if FLAG_RUN:
                 playlistSearch = "Release Radar"
                 playlistRemove = "Discovery Avoid"
                 si.compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle)
-                ### TODO: Update this to also update the edge playlists with new additions.
-                ### ToDO: Update this to also update the pulse playlists.
-        except: 
+
+                dateEarly=today-datetime.timedelta(days=7)
+                dateLate = today
+                dateIn = [dateEarly,dateLate]
+                si.getNewTracks(sp,"The Edge of","Combined Edge Playlists",dateIn)
+                si.getNewTracks(sp,"The Pulse of","Combined Pulse Playlists",dateIn)
+
+        except Exception as e:
+            logging.error(e)
             logging.error("Compilation failed.")
 
-    # Move old elements of the downselect playlist into a monthly playlist.    
+    # Move old elements of the downselect playlist into a monthly playlist.
     if runDownselCycle == True:
         try:
             createNewPl = (today.day == 1)
             idsAdjust = si.cyclePlaylist(sp,"The Downselect",nDaysCycle = 7,removeTracks=True,newPl= createNewPl)
             if idsAdjust:
                si.addToPlaylist(sp,"downselect_downselect_listen",idsAdjust)
-        except: 
-            logging.error("Downselect cycle out failed") 
+        except Exception as e:
+            logging.error(e)
+            logging.error("Downselect cycle out failed")
 
 
     ###### sample big playlists
     if runPlSample:
         try:
-            today=datetime.date.today() 
+            today=datetime.date.today()
             recentGenDW = today-datetime.timedelta(days=today.weekday())
-            recentGenRR = today-datetime.timedelta(days=today.weekday())-datetime.timedelta(days=3)
+            if(today.weekday() < 4):
+                recentGenRR = today-datetime.timedelta(days=today.weekday())-datetime.timedelta(days=3)
+            else:
+                recentGenRR = today-datetime.timedelta(days=today.weekday()) + datetime.timedelta(days=4)
             dwDate = recentGenDW.strftime("%m/%d/%Y")
             rrDate = recentGenRR.strftime("%m/%d/%Y")
 
@@ -85,22 +108,42 @@ if FLAG_RUN:
             # playlists=["Combined RR for the Week of " + rrDate]
             playlists=[\
                         "downselect_downselect_listen", \
-                        "Combined Edge Playlists "+edgeDate, \
-                        "Combined Pulse Playlists "+pulseDate,
+                        "Combined Edge Playlists", \
+                        "Combined Pulse Playlists",
                         "Combined RR for the Week of " + rrDate,
                         "Combined DW for the Week of "+dwDate \
                         ]
-            nPlaylists =2
-            nSongsPerPlaylist = 15
-            for elt in playlists:
-                si.samplePlaylists(sp,elt,nPlaylists,nSongsPerPlaylist)
-        except:
+            playlistShort = ["down","edge","pulse","rr","dw"]
+
+#            playlists = playlists[plGenIdx]
+#            playlistShort=playlistShort[plGenIdx]
+            nPlaylists =1
+            nSongsPerPlaylist = 30
+        #    print(playlists)
+            if today.weekday() == 0:
+                calcClusters = True
+            else:
+                calcClusters = False
+            for idx in plGenIdx:
+                elt = playlists[idx]
+                plOut = playlistShort[idx]
+#                calcClusters= False
+                model_folder = "pkl_vals"
+                print(elt)
+                fid_pulse = "/".join((model_folder,playlistShort[idx]+"_compiled.pkl"))
+                if idx < 3:
+                    si.clusterSinglePlaylist(sp,model_folder,fid_pulse,elt,nPlaylists,analyzeCorpus=calcClusters,out_append=plOut)
+                else:
+                    si.samplePlaylists(sp,elt,nPlaylists,nSongsPerPlaylist)
+
+        except Exception as e:
+            logging.error(e)
             logging.error("Playlist subsample failed.")
-            
+
         ######
     if runTempoRecs:
         try:
-            today = datetime.date.today() 
+            today = datetime.date.today()
             djDate = today.strftime("%m/%d/%Y")
 
             plSearch="The Downselect, 2021"#"The Downselect, July 2021 Week 3"#"The Downselect"
@@ -109,73 +152,37 @@ if FLAG_RUN:
             tempoDelta = 10
             keyDelta = 3#6
             popRange = [0, 100]
-            
-            sp = si.initSpotipy("playlist-read-private playlist-modify-private")# 
 
-            pl_id = si.getPlaylistID(sp,plSearch)
-            trackDict,analysisDict = si.getTracksFromPlaylist(sp,pl_id,True,True)
-            trackDF  = si.tracksToDF(trackDict,analysisDict)
+            plName = "DJ Pull "+ djDate+" " + plSearch
+            si.getDJrecs(sp,plSearch,plName,targetSampleSize,tempoDelta,keyDelta,popRange,ITER_MAX)
 
-            df_single = trackDF.sample(n=1)
-            tempoRange = [-tempoDelta/2+ np.float64(df_single["Tempo"]), np.float64(tempoDelta/2+ df_single["Tempo"])] 
-            key_dj = int(df_single["DJ Key"])
-            keyRange = [key_dj ,keyDelta+key_dj]   ### NOTE: this doesn't account for edce case of key < 
-            keyDiff = 12 - (keyDelta+key_dj)
-            if keyDiff < 0:
-                keyRange = [12-keyDelta,12]
-    #        seedDF = si.djSort(trackDF,tempoRange,keyRange)
-            seedDF = si.djSort(trackDF,tempoRange,[1,12])
-
-            # draw from the songs in the external playlist 
-            nRec = 0
-            recsDF = pd.DataFrame() # include seed at top.
-            iterCnt = 0
-            ### TODO: decide how much of this should be abstracted into spotify_interactions.
-            while nRec < targetSampleSize and iterCnt < ITER_MAX:
-                seedCnt = min(len(seedDF),5)
-                seedSamp = seedDF.sample(n=seedCnt)
-
-                seedRec = list(seedSamp["Track ID"])
-                recRet = sp.recommendations(seed_tracks=seedRec,limit=targetSampleSize,min_tempo=tempoRange[0],max_tempo = tempoRange[1],market="US",min_popularity=popRange[0],max_popularity=popRange[1])
-
-                tracksRet = recRet["tracks"]
-                recIDs_tmp =  [elt["id"] for elt in recRet["tracks"]]
-                afRet = sp.audio_features(recIDs_tmp)
-                currDF = si.tracksToDF(tracksRet,afRet)
-                ### TODO: make this work with 
-                currDF = currDF.loc[(currDF["DJ Key"]>= keyRange[0]) & (currDF["DJ Key"] < keyRange[1])]
-                recsDF = recsDF.append(currDF)
-                recsDF= recsDF.drop_duplicates(subset=['Track ID'])
-                nRec = recsDF.shape[0]
-                iterCnt += 1
-
-            recsDF = si.djSort(recsDF,tempoRange,keyRange)
-            si.createPlaylist(sp,"DJ Pull "+ djDate+" " + plSearch,recsDF,incAnalysis = False)
-        except:
+        except Exception as e:
+            print(e)
             print("creation failed!")
             logging.error("Tempo rec playlist gen failed.")
-
+            logging.error(e)
 
     ###### compile crate playlists and sample that.
     if runCrateCompile:
         try:
             nExport_crate = 1
             nExport_downsel = 1
-            #nExport_archive = 1
+            nExport_archive = 1
             #bigSearch = ["/* ","The Downselect","/** "]
             model_folder = "pkl_vals"
             fid_big = "/".join((model_folder,"crates_compiled.pkl"))
             fid_small = "/".join((model_folder,"downsel_compiled.pkl"))
             fid_arch = "/".join((model_folder,"archive_compiled.pkl"))
 
-            #Compile crates
-            crateCompile(fid_in = fid_big,searchIDs=["/* "])
-            crateCompile(fid_in = fid_small,searchIDs=["The Downselect"])
-            crateCompile(fid_in = fid_arch,searchIDs=["/**"])
+            #Compile crates weekly
+            if today.weekday() == 1:
+                si.crateCompile(sp,fid_in = fid_big,searchIDs=["/* "])
+                si.crateCompile(sp,fid_in = fid_small,searchIDs=["The Downselect"])
+                si.crateCompile(sp,fid_in = fid_arch,searchIDs=["/**"])
 
-            analyseSongCorpus(rangeClusterSearch=[3500,3550],poolSize=20e3,showPlot=False,fid_in=fid_big,out_append="crate_")
-            analyseSongCorpus(rangeClusterSearch=[900,1000],poolSize=5e3,showPlot=False,fid_in=fid_small,out_append="downsel_")
-            analyseSongCorpus(rangeClusterSearch=[200,300],poolSize=10e3,showPlot=False,fid_in=fid_arch,out_append="arch_")
+                analyseSongCorpus(rangeClusterSearch=[3500,3550],poolSize=20e3,showPlot=False,fid_in=fid_big,out_append="crate_")
+                analyseSongCorpus(rangeClusterSearch=[900,1000],poolSize=5e3,showPlot=False,fid_in=fid_small,out_append="downsel_")
+                analyseSongCorpus(rangeClusterSearch=[200,300],poolSize=10e3,showPlot=False,fid_in=fid_arch,out_append="arch_")
 
             ## run for crates
             fid_clustering_thresh = "/".join((model_folder,"crate_clusters_thresh.pkl"))
@@ -187,7 +194,7 @@ if FLAG_RUN:
 
             df_clustered_thresh = pd.read_pickle(fid_clustering_thresh)
             df_centers = df_clustered_thresh.groupby(['Cluster']).mean()
-            indsPlaylistsOut = utils.drawClusters(df_centers,nExport_crate)    
+            indsPlaylistsOut = utils.drawClusters(df_centers,nExport_crate)
 
 
             for ind in indsPlaylistsOut:
@@ -204,7 +211,7 @@ if FLAG_RUN:
 
             df_clustered_thresh = pd.read_pickle(fid_clustering_thresh)
             df_centers = df_clustered_thresh.groupby(['Cluster']).mean()
-            indsPlaylistsOut = utils.drawClusters(df_centers,nExport_downsel)    
+            indsPlaylistsOut = utils.drawClusters(df_centers,nExport_downsel)
 
 
             for ind in indsPlaylistsOut:
@@ -221,11 +228,13 @@ if FLAG_RUN:
 
             df_clustered_thresh = pd.read_pickle(fid_clustering_thresh)
             df_centers = df_clustered_thresh.groupby(['Cluster']).mean()
-            indsPlaylistsOut = utils.drawClusters(df_centers,nExport_archive)    
+            indsPlaylistsOut = utils.drawClusters(df_centers,nExport_archive)
 
 
             for ind in indsPlaylistsOut:
                 writeOut = df_clustered[df_clustered["Cluster"] == ind]
                 createPlaylist(sp,"ARCHIVE Cluster "+str(ind),writeOut,True)
-        except:
-            logging.error("Clustering sample failed.")
+
+        except Exception as e:
+            logging.error(e)
+            logging.error("Cllustering subsample failed.")

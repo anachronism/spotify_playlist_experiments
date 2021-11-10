@@ -44,7 +44,7 @@ def parseNodeInputStr(strIn, nClusters):
     return xOut
 
 # Cluster selection
-def drawClusters(dfIn, nClustersOut = 6,distance = 'l2'):
+def drawClusters(dfIn, nClustersOut = 6,distance = 'l2',centersAvoid = []):
     thresh = 20 # 20 for kmeans/tvne combo
     dfRange = dfIn[["x","y","z"]]
     npIn = np.array(dfRange)
@@ -66,7 +66,7 @@ def drawClusters(dfIn, nClustersOut = 6,distance = 'l2'):
             valChosen = False
             while not valChosen:	
                 indAdd = np.random.choice(indSelect)
-                if not (int(indAdd) in indDraw):
+                if not (int(indAdd) in indDraw) and not(int(indAdd) in centersAvoid):
                     indDraw.append(indAdd)
                     clustersOut[ind,:] = npIn[indAdd,:]
                     valChosen = True
