@@ -449,15 +449,21 @@ def crateCompile(sp,fid_in="pkl_vals/crates_compiled.pkl",searchIDs=["/* ","The 
 
     print("Number of unique tracks: " + str(len(trackDF.index)))
     trackDF.to_pickle(fid_inputPkl)
+
     return len(trackDF.index)
 
-def clusterSinglePlaylist(sp,model_folder,fid_pulse,plSearch,nClustersDraw,analyzeCorpus,out_append):
+def clusterSinglePlaylist(sp,model_folder,fid_pulse,plSearch,nClustersDraw,analyzeCorpus,out_append, pklIn=False):
     from song_corpus_analysis import analyseSongCorpus
-    nTracks,plID_remove = crateCompileSingle(sp,fid_in = fid_pulse,searchID=plSearch)
+    if pklIn:
+        df_raw = pd.read_pickle(fid_pulse)
+        nTracks = df_raw.shape[0]
+    else:
+        nTracks,plID_remove = crateCompileSingle(sp,fid_in = fid_pulse,searchID=plSearch)
 
     if analyzeCorpus:
-        rangeSearch = [int(nTracks/50), int(nTracks/50) + 100]
-        analyseSongCorpus(rangeClusterSearch=rangeSearch,poolSize=nTracks,showPlot=False,fid_in=fid_pulse,out_append=out_append)
+        rangeSearch = [int(nTracks/30), int(nTracks/30) + 100]
+        analyseSongCorpus(rangeClusterSearch=rangeSearch,poolSize=max(nTracks,10e3),showPlot=False,fid_in=fid_pulse,out_append=out_append)
+
     ## run for crates
     fid_clustering_thresh = "/".join((model_folder,out_append+"clusters_thresh.pkl"))
     fid_clustering = "/".join((model_folder,out_append+"clusters.pkl"))
@@ -482,10 +488,27 @@ def clusterSinglePlaylist(sp,model_folder,fid_pulse,plSearch,nClustersDraw,analy
         clustersUsed = np.concatenate((clustersUsed,indsPlaylistsOut))
         np.save(fid_clustersUsed,indsPlaylistsOut)
 
+    df_clustered_tmp = df_clustered
+    trackInd_remove = []
     for ind in indsPlaylistsOut:
         writeOut = df_clustered[df_clustered["Cluster"] == ind]
         retID = createPlaylist(sp,out_append+" Cluster "+str(ind),writeOut,True)
-        removeTracksFromPlaylist(sp,plID_remove,writeOut["Track ID"])
+        if pklIn:
+            df_clustered_tmp = df_clustered_tmp[df_clustered_tmp["Cluster"]!=ind]
+            trackInd_remove = trackInd_remove + writeOut["Track ID"].tolist()
+        else:
+            removeTracksFromPlaylist(sp,plID_remove,writeOut["Track ID"])
+    if pklIn:
+        #### STILL HAVE TO CONFIRM WORKING AS EXPECTED.
+
+        # print(trackInd_remove)
+        # print(df_raw["Track ID"])
+        tst = df_raw["Track ID"].isin(trackInd_remove)
+        # print(max(tst))
+        df_raw_short = df_raw[~ df_raw["Track ID"].isin(trackInd_remove)]#removeTracksFromDF(df_raw,trackID_remove)
+        df_raw_short.to_pickle(fid_pulse)
+        df_clustered_tmp.to_pickle(fid_clustering)
+        print(df_raw_short.shape[0])
 
 def crateCompileSingle(sp,fid_in="pkl_vals/crates_compiled.pkl",searchID="Combined Edge Playlists"):
     fid_inputPkl = fid_in
@@ -565,6 +588,72 @@ def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True):
         logging.info("No tracks to remove.")
         print("No tracks to remove.")
         return []
+
+'''
+'''
+def getNewTracks_df(sp, fidIn,plSearch,datesSearch):
+    df_in = pd.read_pickle(fidIn)
+
+    pl_ids = getPlaylistIDs(sp,plSearch)
+
+    tr_times = []
+    tr_URI = []
+
+    trackList = []
+    afList = []
+    tmpAf = []
+    for playID in pl_ids:
+        print("Parsing "+ playID)
+        (tmpTracks,tmpAf,tmpDates)= getTracksFromPlaylist(sp,playID,ret_track_info = True,ret_af = True,ret_pl_info=True)
+        tmpDuple = tuple(zip(tmpTracks,tmpDates))
+        tmpURI = [track["uri"] for (track,date) in tmpDuple if track]
+        tmpDates = [date for (track,date) in tmpDuple if track]
+        trackList += tmpTracks
+        afList += tmpAf
+
+        if tmpURI:
+            tr_URI = tr_URI + tmpURI
+            tr_times = tr_times + tmpDates
+            # print(len(tr_times))
+            # print(len(tr_URI))
+
+    ### TODO: look into getting unique Ids from names.
+    timeFormatStr = "%Y-%m-%dT%H:%M:%SZ"
+    tr_times_datetime = [datetime.strptime(elt,timeFormatStr) for elt in tr_times]
+    print(len(tr_times_datetime))
+    print(len(tr_times))
+    print(len(tr_URI))
+    idsAdjust = []
+    urisAdjust = []
+    # def not pythonic but whatever at the moment.
+#df.iloc[[0, 1]]
+    idxAdjust = []
+    for (idx,elt) in enumerate(tr_times_datetime):
+        if datesSearch[1] > elt.date() and datesSearch[0] < elt.date():
+            idxAdjust += [idx]
+            urisAdjust += [tr_URI[idx]]
+#            print("Adding.")
+        else:
+            pass
+#            print(elt.date())
+
+    trackDictUse = [trackList[elt] for elt in idxAdjust]
+    analysisDictUse = [afList[elt] for elt in idxAdjust]
+
+    trackDF = tracksToDF(trackDictUse,analysisDictUse,False)
+    # trackIdsUnique = list(dict.fromkeys(idsAdjust))
+    trackIdsUnique = list(dict.fromkeys(urisAdjust))
+    indOut = removeSavedTracks(sp,trackIdsUnique)
+    idsOut = [trackIdsUnique[idx] for idx in indOut]
+    trackDF = trackDF.iloc[indOut]#trackDF.iloc[idsOut]
+
+    trackDF_out = df_in.append(trackDF)
+    trackDF_out = trackDF_out.drop_duplicates(subset=["Song URI"])
+    trackDF_out.to_pickle(fidIn)
+
+    return trackDF_out.shape[0]
+'''
+'''
 
 def getNewTracks(sp, plSearch,plUpdate,datesSearch):
     pl_ids = getPlaylistIDs(sp,plSearch)
@@ -775,6 +864,16 @@ def tracksToDF(tracks,af,artistList = False):
 '''
 Exporting to CSV
 '''
+# export playlist things to pkl file.
+
+def saveTracksFromPlaylist(sp,plName,filepath):
+    playID = getPlaylistID(sp,plName)
+    trackDict,analysisDict = getTracksFromPlaylist(sp,playID,True,True)
+    trackDF = tracksToDF(trackDict,analysisDict,False)
+    trackDF.to_pickle(filepath)
+
+
+
 def saveTrackDF(df,filepath):
     dfTmp = df
     if isinstance(df["Artist"][0],list):

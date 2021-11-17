@@ -16,6 +16,12 @@ today=datetime.date.today()
 FLAG_RUN = True
 ITER_MAX = 100
 
+model_folder = "pkl_vals"
+playlist_folder = "playlist_csvs"
+
+
+
+
 runBools_sample = np.zeros((5,))
 runBools_sample[2] = 1
 
@@ -26,15 +32,15 @@ runBools_rotate_tempo[1] = 1
 runBools_rotate_tempo[3] = 1
 
 runBools_all = np.ones((5,))
-
-runBools = runBools_all
+runBools = runBools_sample
 
 runCompileFcns = runBools[0]
 runDownselCycle = runBools[1]
 
 runPlSample = runBools[2]
-plGenIdx = [0,1,2,3]
-# plGenIdx=[4,4]
+#downsel, rr, dw, edge, pulse
+plGenIdx = [0,1,2,3,4]
+#plGenIdx=[3,4]
 runTempoRecs = runBools[3]
 runCrateCompile = runBools[4]
 
@@ -69,11 +75,17 @@ if FLAG_RUN:
                 playlistRemove = "Discovery Avoid"
                 si.compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle)
 
+                fid_edge = "/".join((model_folder,"edge_compiled.pkl"))
+                fid_pulse = "/".join((model_folder,"pulse_compiled.pkl"))
+
                 dateEarly=today-datetime.timedelta(days=7)
                 dateLate = today
                 dateIn = [dateEarly,dateLate]
-                si.getNewTracks(sp,"The Edge of","Combined Edge Playlists",dateIn)
-                si.getNewTracks(sp,"The Pulse of","Combined Pulse Playlists",dateIn)
+                nTracks = si.getNewTracks_df(sp, fid_edge,"The Edge of",dateIn)
+                nTracks = si.getNewTracks_df(sp, fid_pulse,"The Pulse of",dateIn)
+
+                # si.getNewTracks(sp,"The Edge of","Combined Edge Playlists",dateIn)
+                # si.getNewTracks(sp,"The Pulse of","Combined Pulse Playlists",dateIn)
 
         except Exception as e:
             logging.error(e)
@@ -102,21 +114,20 @@ if FLAG_RUN:
                 recentGenRR = today-datetime.timedelta(days=today.weekday()) + datetime.timedelta(days=4)
             dwDate = recentGenDW.strftime("%m/%d/%Y")
             rrDate = recentGenRR.strftime("%m/%d/%Y")
-
-            edgeDate = "07/30/2021"
-            pulseDate = "07/15/2021"
             # playlists=["Combined RR for the Week of " + rrDate]
             playlists=[\
                         "downselect_downselect_listen", \
-                        "Combined Edge Playlists", \
-                        "Combined Pulse Playlists",
-                        "Combined RR for the Week of " + rrDate,
+                        "Combined RR for the Week of " + rrDate,\
                         "Combined DW for the Week of "+dwDate \
                         ]
-            playlistShort = ["down","edge","pulse","rr","dw"]
 
-#            playlists = playlists[plGenIdx]
-#            playlistShort=playlistShort[plGenIdx]
+            playlistShort = ["down","rr","dw","edge","pulse"]
+
+            model_folder = "pkl_vals"
+            pkl_locs = [
+                "edge_compiled.pkl",\
+                "pulse_compiled.pkl" \
+            ]
             nPlaylists =1
             nSongsPerPlaylist = 30
         #    print(playlists)
@@ -124,17 +135,30 @@ if FLAG_RUN:
                 calcClusters = True
             else:
                 calcClusters = False
+
             for idx in plGenIdx:
-                elt = playlists[idx]
-                plOut = playlistShort[idx]
-#                calcClusters= False
-                model_folder = "pkl_vals"
-                print(elt)
-                fid_pulse = "/".join((model_folder,playlistShort[idx]+"_compiled.pkl"))
+                print(idx)
                 if idx < 3:
-                    si.clusterSinglePlaylist(sp,model_folder,fid_pulse,elt,nPlaylists,analyzeCorpus=calcClusters,out_append=plOut)
+                    elt = playlists[idx]
+                    plOut = playlistShort[idx]
+    #                calcClusters= False
+                    model_folder = "pkl_vals"
+                    print(elt)
+                    fid_pulse = "/".join((model_folder,playlistShort[idx]+"_compiled.pkl"))
+                    if idx < 1:
+                        si.clusterSinglePlaylist(sp,model_folder,fid_pulse,elt,nPlaylists,analyzeCorpus=calcClusters,out_append=plOut)
+                    else:
+                        si.samplePlaylists(sp,elt,nPlaylists,nSongsPerPlaylist)
                 else:
-                    si.samplePlaylists(sp,elt,nPlaylists,nSongsPerPlaylist)
+                    fid_in ="/".join((model_folder,pkl_locs[idx-3]))
+                    plOut = playlistShort[idx]
+    #                calcClusters= False
+                    si.clusterSinglePlaylist(sp,model_folder,fid_in,False,nPlaylists,analyzeCorpus=calcClusters,out_append=plOut, pklIn=True)
+
+            #df sampled ones.
+
+
+
 
         except Exception as e:
             logging.error(e)

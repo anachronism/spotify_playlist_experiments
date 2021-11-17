@@ -10,37 +10,57 @@ import datetime
 
 today=datetime.date.today()
 
+model_folder = "pkl_vals"
+playlist_folder = "playlist_csvs"
+fid_edge = "/".join((model_folder,"edge_compiled.pkl"))
+fid_pulse = "/".join((model_folder,"pulse_compiled.pkl"))
+fid_dw = "/".join((model_folder,"dw_compiled.pkl"))
+
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
-mode = "newEdgeCluster"
+mode = "newPulseCluster"#"initEdgePulse"
 
 
+if mode=="initEdgePulse":
+        plCompile_edge = "Combined Edge Playlists"
+        plCompile_pulse = "Combined Pulse Playlists"
+        si.saveTracksFromPlaylist(sp,plCompile_pulse,fid_pulse)
+        print("Pulse compiled!")
+        si.saveTracksFromPlaylist(sp,plCompile_edge,fid_edge)
+        print("Edge compiled!")
 
-if mode == "newEdgeCluster":
-    RECOMP_EDGE = True
-    nExport_edge = 5
-    model_folder = "pkl_vals"
-    fid_edge = "/".join((model_folder,"edge_compiled.pkl"))
+elif mode == "newEdgeCluster":
+    RECOMP_EDGE = False
+    nExport_edge = 1
     #Compile crates weekly
+
     if RECOMP_EDGE:
-        nTracks = si.crateCompile(sp,fid_in = fid_edge,searchIDs=["The Edge of"],removeLiked=True)
+        dateEarly=today-datetime.timedelta(days=7)
+        dateLate = today
+        dateIn = [dateEarly,dateLate]
+
+        nTracks = si.getNewTracks_df(sp, fid_edge,"The Edge of",dateIn)
+        print("Number of tracks in pool: " + str(nTracks))
         # si.crateCompile(sp,fid_in = fid_edge,searchIDs=["The Edge of"])
-        analyseSongCorpus(rangeClusterSearch=[0+int(np.floor(nTracks/30)),100+int(np.floor(nTracks/30))],poolSize=10e3,showPlot=False,fid_in=fid_edge,out_append="edge_")
+        # analyseSongCorpus(rangeClusterSearch=[0+int(np.floor(nTracks/30)),100+int(np.floor(nTracks/30))],poolSize=10e3,showPlot=False,fid_in=fid_edge,out_append="edge_")
 
-    fid_clustering_thresh = "/".join((model_folder,"edge_clusters_thresh.pkl"))
-    fid_clustering = "/".join((model_folder,"edge_clusters.pkl"))
-    fid_clusterNum = "/".join((model_folder,"edge_nPlaylists"))
+    si.clusterSinglePlaylist(sp,model_folder,fid_edge,"Combined Edge Playlists",1,analyzeCorpus=RECOMP_EDGE,out_append="edge", pklIn=True)
 
-    df_clustered= pd.read_pickle(fid_clustering)
-    nPlaylists = np.load(fid_clusterNum+".npy")
+elif mode == "newPulseCluster":
+    RECOMP_PULSE = True
+    nExport_pulse = 1
+    #Compile crates weekly
 
-    df_clustered_thresh = pd.read_pickle(fid_clustering_thresh)
-    df_centers = df_clustered_thresh.groupby(['Cluster']).mean()
-    indsPlaylistsOut = utils.drawClusters(df_centers,nExport_edge)
+    if RECOMP_PULSE:
+        dateEarly=today-datetime.timedelta(days=7)
+        dateLate = today
+        dateIn = [dateEarly,dateLate]
 
-    for ind in indsPlaylistsOut:
-        writeOut = df_clustered[df_clustered["Cluster"] == ind]
-        si.createPlaylist(sp,"edge Cluster "+str(ind),writeOut,True)
+        nTracks = si.getNewTracks_df(sp, fid_pulse,"The Pulse of",dateIn)
+        print("Number of tracks in pool: " + str(nTracks))
+        # si.crateCompile(sp,fid_in = fid_edge,searchIDs=["The Edge of"])
+        # analyseSongCorpus(rangeClusterSearch=[0+int(np.floor(nTracks/30)),100+int(np.floor(nTracks/30))],poolSize=10e3,showPlot=False,fid_in=fid_edge,out_append="edge_")
 
+    si.clusterSinglePlaylist(sp,model_folder,fid_pulse,"Combined Pulse Playlists",1,analyzeCorpus=RECOMP_PULSE,out_append="pulse", pklIn=True)
 
 elif mode == "pulseCluster":
     calcClusters= False
