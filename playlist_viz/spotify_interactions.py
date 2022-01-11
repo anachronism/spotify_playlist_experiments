@@ -620,16 +620,17 @@ def getNewTracks_df(sp, fidIn,plSearch,datesSearch):
     ### TODO: look into getting unique Ids from names.
     timeFormatStr = "%Y-%m-%dT%H:%M:%SZ"
     tr_times_datetime = [datetime.strptime(elt,timeFormatStr) for elt in tr_times]
-    print(len(tr_times_datetime))
-    print(len(tr_times))
-    print(len(tr_URI))
+    logging.info("getNewTracks_df||Finished parsing playlists.")
     idsAdjust = []
     urisAdjust = []
     # def not pythonic but whatever at the moment.
 #df.iloc[[0, 1]]
     idxAdjust = []
+
     for (idx,elt) in enumerate(tr_times_datetime):
-        if datesSearch[1] > elt.date() and datesSearch[0] < elt.date():
+        if datesSearch[1] >= elt.date() and datesSearch[0] < elt.date():
+            print(idx)
+            print(len(tr_URI))
             idxAdjust += [idx]
             urisAdjust += [tr_URI[idx]]
 #            print("Adding.")
@@ -637,14 +638,21 @@ def getNewTracks_df(sp, fidIn,plSearch,datesSearch):
             pass
 #            print(elt.date())
 
+    if len(idxAdjust) == 0:
+        logging.info("No tracks to add!")
+        return 0
+
     trackDictUse = [trackList[elt] for elt in idxAdjust]
     analysisDictUse = [afList[elt] for elt in idxAdjust]
 
     trackDF = tracksToDF(trackDictUse,analysisDictUse,False)
     # trackIdsUnique = list(dict.fromkeys(idsAdjust))
+    print("DF'd")
     trackIdsUnique = list(dict.fromkeys(urisAdjust))
+    print("Unique Tracks.")
     indOut = removeSavedTracks(sp,trackIdsUnique)
     idsOut = [trackIdsUnique[idx] for idx in indOut]
+    print("IdsOut made.")
     trackDF = trackDF.iloc[indOut]#trackDF.iloc[idsOut]
 
     trackDF_out = df_in.append(trackDF)
@@ -809,15 +817,16 @@ Dataframe/spotify object interactions.
 # tracksToDF(tracks,af): convert the tracks and af objects spotipy produces to a unified dataframe.
 def tracksToDF(tracks,af,artistList = False):
     # Currently, putting off the most annoying parts (indexing to get the artist name)
-
+    logging.info("In trackstoDF")
     albumObj = [x["album"] for x in tracks]
-
     tmp = []
+    print(albumObj)
     for elt in albumObj:
         if elt:
             tmp = tmp + [elt["artists"]]
         else:
             tmp = tmp + [{"name":"N/A","uri":"spotify:artist:5getpnTxZMpYRlfyXOjQQw"}]
+
     print(tmp[0])
 
 #    print(albumObj)
@@ -858,6 +867,8 @@ def tracksToDF(tracks,af,artistList = False):
     }
     retDF = pd.DataFrame.from_dict(trackDict)
     retDF = djMapKey(retDF)
+
+    logging.info("Exiting")
     return retDF
 
 

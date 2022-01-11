@@ -25,6 +25,9 @@ playlist_folder = "playlist_csvs"
 runBools_sample = np.zeros((5,))
 runBools_sample[2] = 1
 
+runBools_compile = np.zeros((5,))
+runBools_compile[0] = 1
+
 ### TODO: check how keys are mapped.
 runBools_rotate_tempo = np.zeros((5,))
 runBools_rotate_tempo[0] = 1
@@ -32,7 +35,7 @@ runBools_rotate_tempo[1] = 1
 runBools_rotate_tempo[3] = 1
 
 runBools_all = np.ones((5,))
-runBools = runBools_sample
+runBools = runBools_all
 
 runCompileFcns = runBools[0]
 runDownselCycle = runBools[1]
@@ -40,6 +43,9 @@ runDownselCycle = runBools[1]
 runPlSample = runBools[2]
 #downsel, rr, dw, edge, pulse
 plGenIdx = [0,1,2,3,4]
+# plGenIdx = [1,2,3,4]
+
+# plGenIdx = [0,1,2]
 #plGenIdx=[3,4]
 runTempoRecs = runBools[3]
 runCrateCompile = runBools[4]
@@ -74,6 +80,7 @@ if FLAG_RUN:
                 playlistSearch = "Release Radar"
                 playlistRemove = "Discovery Avoid"
                 si.compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle)
+                logging.info("Compiled RR.")
 
                 fid_edge = "/".join((model_folder,"edge_compiled.pkl"))
                 fid_pulse = "/".join((model_folder,"pulse_compiled.pkl"))
@@ -82,10 +89,9 @@ if FLAG_RUN:
                 dateLate = today
                 dateIn = [dateEarly,dateLate]
                 nTracks = si.getNewTracks_df(sp, fid_edge,"The Edge of",dateIn)
+                logging.info("Compiled Edge Of playlists.")
                 nTracks = si.getNewTracks_df(sp, fid_pulse,"The Pulse of",dateIn)
-
-                # si.getNewTracks(sp,"The Edge of","Combined Edge Playlists",dateIn)
-                # si.getNewTracks(sp,"The Pulse of","Combined Pulse Playlists",dateIn)
+                logging.info("Compiled Pulse Of playlists.")
 
         except Exception as e:
             logging.error(e)
@@ -135,6 +141,7 @@ if FLAG_RUN:
                 calcClusters = True
             else:
                 calcClusters = False
+            # calcClusters = True
 
             for idx in plGenIdx:
                 print(idx)
@@ -206,7 +213,7 @@ if FLAG_RUN:
 
                 analyseSongCorpus(rangeClusterSearch=[3500,3550],poolSize=20e3,showPlot=False,fid_in=fid_big,out_append="crate_")
                 analyseSongCorpus(rangeClusterSearch=[900,1000],poolSize=5e3,showPlot=False,fid_in=fid_small,out_append="downsel_")
-                analyseSongCorpus(rangeClusterSearch=[200,300],poolSize=10e3,showPlot=False,fid_in=fid_arch,out_append="arch_")
+                analyseSongCorpus(rangeClusterSearch=[2000,2050],poolSize=10e3,showPlot=False,fid_in=fid_arch,out_append="arch_")
 
             ## run for crates
             fid_clustering_thresh = "/".join((model_folder,"crate_clusters_thresh.pkl"))

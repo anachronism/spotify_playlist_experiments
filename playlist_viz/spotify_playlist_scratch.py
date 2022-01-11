@@ -17,12 +17,46 @@ fid_pulse = "/".join((model_folder,"pulse_compiled.pkl"))
 fid_dw = "/".join((model_folder,"dw_compiled.pkl"))
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
-mode = "newPulseCluster"#"initEdgePulse"
+mode = "manualSetup"#"initEdgePulse"
 
 
-if mode=="initEdgePulse":
+if mode == "manualSetup":
+    # idsAdjust = si.cyclePlaylist(sp,"The Downselect",nDaysCycle = 7,removeTracks=True,newPl= True)
+    # if idsAdjust:
+    #    si.addToPlaylist(sp,"downselect_downselect_listen",idsAdjust)
+    now = datetime.datetime.now()
+    dtString=now.strftime("%m/%d/%Y")
+
+    # Monday, create discover weekly.
+    # playlistTitle = "Combined DW for the Week of " + dtString
+    # playlistSearch = "Discover Weekly"
+    # playlistRemove = "Discovery Avoid"
+    # si.compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle)
+    playlistTitle = "Combined RR for the Week of " + dtString
+    playlistSearch = "Release Radar"
+    playlistRemove = "Discovery Avoid"
+    si.compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle)
+
+if mode == "getGenresDownsel":
+    plGet = "The Downselect, 2021"
+    playID = si.getPlaylistID(sp,plGet)
+
+    trackDict,analysisDict = si.getTracksFromPlaylist(sp,playID,True,True)
+    if analysisDict is None:
+        trackDict,analysisDict = si.getTracksFromPlaylist(sp,playID,True,True)
+
+    idxUse = [idx for idx,val in enumerate(analysisDict) if not (val is None)]
+    trackDictUse = [trackDict[idx] for idx in idxUse]
+    analysisDictUse = [analysisDict[idx]for idx in idxUse]
+    trackDF = si.tracksToDF(trackDictUse,analysisDictUse,False)
+    (genreVals,genreCount) = si.getTopGenres(sp,trackDF)
+    DF_genre = pd.DataFrame({"Genre":genreVals,"GenreCount":genreCount})
+    DF_genre.to_csv("end_of_year_genres.csv")
+
+elif mode=="initEdgePulse":
         plCompile_edge = "Combined Edge Playlists"
         plCompile_pulse = "Combined Pulse Playlists"
+        plCompile_dw = "Combined DW Playlists "
         si.saveTracksFromPlaylist(sp,plCompile_pulse,fid_pulse)
         print("Pulse compiled!")
         si.saveTracksFromPlaylist(sp,plCompile_edge,fid_edge)
