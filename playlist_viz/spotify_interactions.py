@@ -42,7 +42,9 @@ def removeUnplayableSongs(sp,plNames):
         tracks_pl,analysis_pl = getTracksFromPlaylist(sp,pl_id,True,True)
         df_pl = tracksToDF(tracks_pl,analysis_pl,False)
         print(df_pl["market"])
-        df_remove = df_pl[df_pl["market"].isin(["us"])]
+        df_remove = df_pl[not df_pl["market"].isin(["us"])]
+        #### NOTE: This needs to be finished.
+        return df_remove
 
 def searchPlaylistForTempo(sp,plName,bpmRange,checkDouble=True):
     pl_id = getPlaylistID(sp,plName)
