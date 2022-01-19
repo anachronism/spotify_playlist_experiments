@@ -3,8 +3,8 @@
 Created on Tue Jan 12 18:46:12 2021
 
 @author: Max
-NOTE: 
-    I think that this stuff with dash is relatively jank, because of the inability to pass values out. 
+NOTE:
+    I think that this stuff with dash is relatively jank, because of the inability to pass values out.
 
 TODO:
     CHANGE the plot sel thing in figure 1 to have each cluster a different trace, and change sicze of trace.
@@ -20,7 +20,7 @@ TODO:
 import json
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-from plotly import tools 
+from plotly import tools
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -31,7 +31,7 @@ from dash_components import updateScatter3D
 
 
 from spotify_interactions import createPlaylist,initSpotipy
-import utils 
+import utils
 
 import numpy as np
 import pandas as pd
@@ -60,7 +60,7 @@ nPlaylists = np.load(fid_clusterNum+".npy")
 
 df_clustered_thresh = pd.read_pickle(fid_clustering_thresh)
 df_centers = df_clustered_thresh.groupby(['Cluster']).mean()
-indsPlaylistsOut = utils.drawClusters(df_centers,nPlayExport)    
+indsPlaylistsOut = utils.drawClusters(df_centers,nPlayExport)
 df_drawn = df_clustered_thresh[df_clustered_thresh['Cluster'].isin(indsPlaylistsOut)]
 
 minMaxPlots = ["Acousticness","Danceability","Valence","Energy"]
@@ -107,7 +107,7 @@ app.layout = html.Div(children=[
     ### Plot 1
     html.H3(id="topLabel",children="3d scatterplot of songs, tvne dim reduction"),
     html.Div(style={'display':'flex'},
-        children=[ 
+        children=[
             dcc.Graph(
                 id='scatterAll',
                 figure=fig1,
@@ -141,7 +141,7 @@ app.layout = html.Div(children=[
     html.H3(id="nodeSelSub", children="Subselection of clusters: "),
     html.Div(
         style={'display':'flex'},
-        children=[        
+        children=[
             html.Div( style={'width':'49%'},
                     children = [
                     dash_table.DataTable(
@@ -186,7 +186,7 @@ app.layout = html.Div(children=[
                         html.Div(id='plSaveOutput2')
                     ]),
                 ]),
-        
+
         ]
     ),
     html.Div(id='nodeShowClick', style={'display': 'none'}),
@@ -198,7 +198,7 @@ app.layout = html.Div(children=[
     html.H3(id="topLabel_extrema", children="Extremities: "),
     html.Div(
         style={'display':'flex'},
-        children=[        
+        children=[
             html.Div( style={'width':'49%'},
                     children = [
                     dash_table.DataTable(
@@ -246,7 +246,7 @@ app.layout = html.Div(children=[
                     #     html.Div(id='plSaveOutput2')
                     ]),
                 ]),
-        
+
         ]
     ),
     # dcc.Graph(
@@ -257,7 +257,7 @@ app.layout = html.Div(children=[
 
 
 ################################### Callbacks
-# Cluster sel update plot. 
+# Cluster sel update plot.
 @app.callback(
     Output('scatterSel', 'figure'),
     Output('nodeShowUpdate_1','children'),
@@ -265,11 +265,11 @@ app.layout = html.Div(children=[
     Input('btnState','n_clicks'),
     State('node-box', 'value'))
 def updateClusterSel(n_clicks,nodeStrIn):
-    
-    nodePlot = utils.parseNodeInputStr(nodeStrIn,nPlaylists)   
+
+    nodePlot = utils.parseNodeInputStr(nodeStrIn,nPlaylists)
     df_drawn = df_clustered[df_clustered['Cluster'].isin(nodePlot)]
    # print(indsColor)
-    
+
 #    print (indsColor_loc)
    # print(nodePlot)
     fig = updateScatter3D(df_drawn,nPlaylists,None)
@@ -332,11 +332,11 @@ def updateTableSmall2(nodeShowUpdate,nodeShowClick):
 
     return df_display,headerLabel
 
-#Playlist saving callback    
+#Playlist saving callback
 
-#Playlist saving callback    
+#Playlist saving callback
 @app.callback(
-    Output(component_id='plSaveOutput', component_property='children'), 
+    Output(component_id='plSaveOutput', component_property='children'),
     Input('playlistSaveBtn_1','n_clicks'),
     State('nodeShowUpdate_0','children'))
 def saveCurrentPlaylist(n_clicks,nodeIn):
@@ -354,7 +354,7 @@ def saveCurrentPlaylist(n_clicks,nodeIn):
         return "Init"
 
 @app.callback(
-    Output(component_id='plSaveOutput2', component_property='children'), 
+    Output(component_id='plSaveOutput2', component_property='children'),
     Input('playlistSaveBtn_2','n_clicks'),
     State('node-box','value'))
 def savePlaylistsCluster(n_clicks,nodeStrIn):
@@ -374,7 +374,7 @@ def savePlaylistsCluster(n_clicks,nodeStrIn):
         return "Init"
 
 @app.callback(
-    Output(component_id='plSaveOutput3', component_property='children'), 
+    Output(component_id='plSaveOutput3', component_property='children'),
     Input('playlistSaveBtn_3','n_clicks'),
     State('dropdownExtrema','value'))
 def savePlaylistsExtrema(n_clicks,nodeStrIn):
@@ -401,14 +401,14 @@ def savePlaylistsExtrema(n_clicks,nodeStrIn):
         return "Init"
 
 
-#Playlist saving callback    
+#Playlist saving callback
 @app.callback(
     Output('node-box','value'),
     Output('btnState','n_clicks'),
     Input('playlistDrawBtn','n_clicks'))
 def drawMoreClusters(n_clicks):
     if n_clicks != 0:
-        indsPlaylistsOut = utils.drawClusters(df_centers,nPlayExport)    
+        indsPlaylistsOut = utils.drawClusters(df_centers,nPlayExport)
         initStr = [str(i) for i in indsPlaylistsOut]
 
         return ", ".join(initStr) , 1
@@ -424,7 +424,7 @@ def display_click_data(clickData):
 #    print(clickData)
     if not clickData is None:
         retPrint = clickData["points"][0]["marker.color"]
-        idxUse = retPrint 
+        idxUse = retPrint
     else:
         retPrint = None
         idxUse = 0
@@ -440,11 +440,11 @@ def display_click_data(clickData):
 #    print(clickData)
     if not clickData is None:
         retPrint = clickData["points"][0]["marker.color"]
-        idxUse = retPrint 
+        idxUse = retPrint
     else:
         retPrint = None
         idxUse = 0
- 
+
     # keys = ["Title","Artist","Album Name", "Tempo", "Key"]
     # playlistOut = plSave[idxUse] ### TODO: think about how I want to print these tables out. Maybe on tabs?
     # playlistOut = playlistOut.iloc[0:nTableShow]
@@ -461,11 +461,11 @@ def display_click_data_subset(clickData):
 #    print(clickData)
     if not clickData is None:
         retPrint = clickData["points"][0]["marker.color"]
-        idxUse = retPrint 
+        idxUse = retPrint
     else:
         retPrint = None
         idxUse = 0
- 
+
     return idxUse
 #     return str(retPrint),df_display
 
@@ -481,7 +481,3 @@ def display_sel_extrema(extremeIn):
     return updateScatter3D(df_use,nPlaylists,None)
 
 app.run_server(debug=True)
-
-
-
-

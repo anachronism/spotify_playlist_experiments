@@ -19,9 +19,6 @@ ITER_MAX = 100
 model_folder = "pkl_vals"
 playlist_folder = "playlist_csvs"
 
-
-
-
 runBools_sample = np.zeros((5,))
 runBools_sample[2] = 1
 
@@ -35,22 +32,23 @@ runBools_rotate_tempo[1] = 1
 runBools_rotate_tempo[3] = 1
 
 runBools_all = np.ones((5,))
+# runBools = runBools_sample
 runBools = runBools_all
 
-runCompileFcns = runBools[0]
-runDownselCycle = runBools[1]
-
-runPlSample = runBools[2]
-#downsel, rr, dw, edge, pulse
-plGenIdx = [0,1,2,3,4]
+#downsel, rr, dw, edge, pulse, sounds
+plGenIdx = [0,1,2,3,4,5]
+# plGenIdx = [1,2,3,4,5]
+# plGenIdx = [2]
+# plGenIdx = [3]
 # plGenIdx = [1,2,3,4]
 
 # plGenIdx = [0,1,2]
 #plGenIdx=[3,4]
+runCompileFcns = runBools[0]
+runDownselCycle = runBools[1]
+runPlSample = runBools[2]
 runTempoRecs = runBools[3]
 runCrateCompile = runBools[4]
-
-
 
 
 now = datetime.datetime.now()
@@ -60,7 +58,7 @@ logging.basicConfig(filename='globalScript.log',encoding='utf-8',level=logging.I
 logging.info("Global script run " + dtString)
 
 if FLAG_RUN:
-    sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read playlist-modify-public")#
+    sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read playlist-modify-public ugc-image-upload")#
 
     if runCompileFcns:
         try:
@@ -127,12 +125,13 @@ if FLAG_RUN:
                         "Combined DW for the Week of "+dwDate \
                         ]
 
-            playlistShort = ["down","rr","dw","edge","pulse"]
+            playlistShort = ["down","rr","dw","edge","pulse","sounds"]
 
             model_folder = "pkl_vals"
             pkl_locs = [
                 "edge_compiled.pkl",\
-                "pulse_compiled.pkl" \
+                "pulse_compiled.pkl", \
+                "sounds_compiled.pkl" \
             ]
             nPlaylists =1
             nSongsPerPlaylist = 30
@@ -141,6 +140,7 @@ if FLAG_RUN:
                 calcClusters = True
             else:
                 calcClusters = False
+
             # calcClusters = True
 
             for idx in plGenIdx:

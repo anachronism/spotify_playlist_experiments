@@ -292,6 +292,12 @@ def getTracksWithTempo(df_in,bpmRange,checkDouble = True):
 #    a valid option if the object in is a dataframe, and includes some analysis in the playlist description.
 
 def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
+    # image imports
+    from PIL import Image
+    import plCover as pl_im
+    import base64
+    from io import BytesIO
+    import matplotlib.cm as cm
 
     currUser = sp.me()
     userID = currUser["id"]
@@ -328,8 +334,20 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
         str5 =  (" || Mean Valence: %0.2f" %valenceMean)
         str6 = (" || Mean Instrumentalness: %0.2f"%instrMean)
         strDescription = genresPrint + str0+str1+str2+str3+str4+str5 +str6
+
+        ### TODO: map this more reasonably, do a gradient.
+        genRand = False
     else: #Assuming for the moment else is a list of IDs
         strDescription = "Created "+ dtString
+        energyMean = 0
+        valenceMean = 0
+        genRand = True
+    # Make co
+    # coverArt =  pl_im.genSolidCover(energyMean,512,genRand)
+    coverArt =  pl_im.gen2ColorCover(energyMean,valenceMean,512,genRand)
+    output_buffer = BytesIO()
+    coverArt.save(output_buffer,format="JPEG")
+    coverArt_b64 = base64.b64encode(output_buffer.getvalue())
 
     newPlay = sp.user_playlist_create(userID,playlistName,public=False,description=strDescription)
 
@@ -359,7 +377,7 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
                # print(lenIdsProc)
                 sp.playlist_add_items(playID, idsProc[0:])
                 midBreak = True
-
+    sp.playlist_upload_cover_image(playID,coverArt_b64)
     return playID
 
 # Note: Currently assuming list of ID strings as input for objin.
@@ -372,6 +390,24 @@ def addToPlaylist(sp,playlistName,objIn):
         sp.playlist_add_items(plID,objIn[elt*100:(elt+1)* 100])
 
     sp.playlist_add_items(plID,objIn[numRun*100:])
+
+def compilePlaylists_dicts(sp,playlistSearch):
+    pl_ids = getPlaylistIDs(sp,playlistSearch)
+    pl_ids = list(filter(None,pl_ids))
+    pl_ids = [elt for elt in pl_ids if elt!='37i9dQZEVXcScWD9gb8qCj']
+
+    trackDicts = []
+    analysisDict = []
+    for playID in pl_ids:
+        print(playID)
+        (tmpTrack,tmpAf)= getTracksFromPlaylist(sp,playID,True,True)
+        trackDicts = trackDicts + tmpTrack
+        analysisDict = analysisDict + tmpAf
+
+    idxUse = [idx for idx,val in enumerate(analysisDict) if not (val is None)]
+    trackDictUse = [trackDicts[idx] for idx in idxUse]
+    analysisDictUse = [analysisDict[idx]for idx in idxUse]
+    return trackDictUse,analysisDictUse
 
 def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
     dw_ids = getPlaylistIDs(sp,playlistSearch)
@@ -463,8 +499,13 @@ def clusterSinglePlaylist(sp,model_folder,fid_pulse,plSearch,nClustersDraw,analy
         nTracks,plID_remove = crateCompileSingle(sp,fid_in = fid_pulse,searchID=plSearch)
 
     if analyzeCorpus:
-        rangeSearch = [int(nTracks/30), int(nTracks/30) + 100]
-        analyseSongCorpus(rangeClusterSearch=rangeSearch,poolSize=max(nTracks,10e3),showPlot=False,fid_in=fid_pulse,out_append=out_append)
+        nTracksUse = min(nTracks,15e3)
+        if nTracksUse < 8000:
+            rangeSearch = [int(nTracksUse/30), int(nTracksUse/30) + 100]
+        else:
+            rangeSearch = [int(nTracksUse/10), int(nTracksUse/10) + 100]
+
+        analyseSongCorpus(rangeClusterSearch=rangeSearch,poolSize=nTracksUse,showPlot=False,fid_in=fid_pulse,out_append=out_append)
 
     ## run for crates
     fid_clustering_thresh = "/".join((model_folder,out_append+"clusters_thresh.pkl"))
@@ -595,7 +636,6 @@ def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True):
 '''
 def getNewTracks_df(sp, fidIn,plSearch,datesSearch):
     df_in = pd.read_pickle(fidIn)
-
     pl_ids = getPlaylistIDs(sp,plSearch)
 
     tr_times = []
@@ -778,6 +818,17 @@ def getSimilarPlaylist(sp,plSearch,targetSampleSize,genSameSize=False,targetPopu
     ### TODO: get recTracks into recIDsUnique format, get sp.audio_features() of the ids to djsort similar playlists.
     createPlaylist(sp,"Similar to "+plSearch,recIDsUse,incAnalysis = False)
 
+#removeSavedTracks_df(sp,fidIn)
+def removeSavedTracks_df(sp,fidIn):
+        trackDF = pd.read_pickle(fidIn)
+        idsAdjust = list(trackDF["Track ID"])
+
+        indOut = removeSavedTracks(sp,idsAdjust)
+        idsOut = [idsAdjust[idx] for idx in indOut]
+        trackDF_out = trackDF.iloc[indOut]#trackDF.iloc[idsOut]
+        trackDF_out.to_pickle(fidIn)
+
+        return trackDF_out.shape[0]
 
 # removeSavedTracks(sp,trackIDs): Given a list of track IDs, return the indices of tracks that haven't been saved into the users library yet.
 def removeSavedTracks(sp,trackIDs):
@@ -794,7 +845,6 @@ def removeSavedTracks(sp,trackIDs):
             # print("BREAKBREAK")#
         else:
             tmp = trackIDs[(0+ind*divVal):]
-
         songsLiked = songsLiked + sp.current_user_saved_tracks_contains(tracks=tmp)
 
     songsUnliked = [not x for x in songsLiked]
@@ -820,7 +870,11 @@ Dataframe/spotify object interactions.
 def tracksToDF(tracks,af,artistList = False):
     # Currently, putting off the most annoying parts (indexing to get the artist name)
     logging.info("In trackstoDF")
-    albumObj = [x["album"] for x in tracks]
+    idxUse = [idx for idx,val in enumerate(tracks) if not (val is None)]
+    tracks = [tracks[idx] for idx in idxUse]
+    af = [af[idx]for idx in idxUse]
+
+    albumObj = [x["album"] for x in tracks ]
     tmp = []
     print(albumObj)
     for elt in albumObj:
@@ -885,6 +939,11 @@ def saveTracksFromPlaylist(sp,plName,filepath):
     trackDF = tracksToDF(trackDict,analysisDict,False)
     trackDF.to_pickle(filepath)
 
+def saveTracksFromPlaylists(sp,plName,filepath):
+    trackDict,analysisDict = compilePlaylists_dicts(sp,plName)
+    print(trackDict[0].keys())
+    trackDF = tracksToDF(trackDict,analysisDict,False)
+    trackDF.to_pickle(filepath)
 
 
 def saveTrackDF(df,filepath):

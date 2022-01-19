@@ -12,15 +12,40 @@ today=datetime.date.today()
 
 model_folder = "pkl_vals"
 playlist_folder = "playlist_csvs"
+fid_sounds = "/".join((model_folder,"sounds_compiled.pkl"))
 fid_edge = "/".join((model_folder,"edge_compiled.pkl"))
 fid_pulse = "/".join((model_folder,"pulse_compiled.pkl"))
 fid_dw = "/".join((model_folder,"dw_compiled.pkl"))
+fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
-mode = "manualSetup"#"initEdgePulse"
+mode = "modifySounds"#"initEdgePulse"
+if mode == "modifySounds":
+    trackDF = pd.read_pickle(fid_sounds)
+    idsAdjust = list(trackDF["Track ID"])
+    now = datetime.datetime.now()
+    dtString = now.strftime("%m/%d/%Y")
+    trackDF["Date Added"] = dtString
+    trackDF.to_pickle(fid_crate)
+    si.saveTrackDF(trackDF,'sounds_compiled.csv')
+if mode == "initSounds":
+    plCompile_sounds = "The Sound of"
+    si.saveTracksFromPlaylists(sp,plCompile_sounds,fid_sounds)
+    print("Sounds compiled!")
+elif mode=="modifyCrate":
+    trackDF = pd.read_pickle(fid_crate)
+    idsAdjust = list(trackDF["Track ID"])
+    now = datetime.datetime.now()
+    dtString = now.strftime("%m/%d/%Y")
+    trackDF["Date Added"] = dtString
+    trackDF.to_pickle(fid_crate)
+    si.saveTrackDF(trackDF,'crates_compiled.csv')
+elif mode=="initCrate":
+        plCompile_crate = "/*"
+        si.saveTracksFromPlaylists(sp,plCompile_crate,fid_crate)
+        print("Crates compiled!")
 
-
-if mode == "manualSetup":
+elif mode == "manualSetup":
     # idsAdjust = si.cyclePlaylist(sp,"The Downselect",nDaysCycle = 7,removeTracks=True,newPl= True)
     # if idsAdjust:
     #    si.addToPlaylist(sp,"downselect_downselect_listen",idsAdjust)
@@ -37,7 +62,7 @@ if mode == "manualSetup":
     playlistRemove = "Discovery Avoid"
     si.compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle)
 
-if mode == "getGenresDownsel":
+elif mode == "getGenresDownsel":
     plGet = "The Downselect, 2021"
     playID = si.getPlaylistID(sp,plGet)
 
@@ -61,7 +86,10 @@ elif mode=="initEdgePulse":
         print("Pulse compiled!")
         si.saveTracksFromPlaylist(sp,plCompile_edge,fid_edge)
         print("Edge compiled!")
-
+elif mode == "removeEdgeLiked":
+    si.saveTrackDF(pd.read_pickle(fid_edge),'pre_removal.csv')
+    si.removeSavedTracks_df(sp,fid_edge)
+    si.saveTrackDF(pd.read_pickle(fid_edge),'post_removal.csv')
 elif mode == "newEdgeCluster":
     RECOMP_EDGE = False
     nExport_edge = 1
