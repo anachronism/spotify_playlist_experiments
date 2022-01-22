@@ -13,6 +13,24 @@ def genSolidCover(normVal, size=512,genRand=False):
     return Image.new('RGB',(size,size),color=artColor)
 
 
+def gen2ColorCircleCover(normVal1,normVal2, size=512,genRand=False):
+    if genRand:
+        artColor1 =(np.random.randint(0,255),np.random.randint(0,255),np.random.randint(0,255))
+        artColor2 =(np.random.randint(0,255),np.random.randint(0,255),np.random.randint(0,255))
+
+    else:
+        colorNorm1 = cm.bwr(normVal1)
+        colorNorm2 = cm.inferno(normVal2)#cm.viridis(normVal2)
+#        colorUse = tuple([int(colorIdx*256) for colorIdx in colorNorm])
+        artColor1 = tuple([int(colorIdx * 256) for colorIdx in colorNorm1[0:3]])
+        artColor2 = tuple([int(colorIdx * 256) for colorIdx in colorNorm2[0:3]])
+
+    imCanvas = Image.new('RGB',(size,size),(255,255,255))
+    draw = ImageDraw.Draw(imCanvas)
+    region=Rect(0,0,size,size)
+    circGradient(draw,region,gradientColor,[artColor1,artColor2])
+    return imCanvas
+
 
 def gen2ColorCover(normVal1,normVal2, size=512,genRand=False):
     if genRand:
@@ -21,7 +39,7 @@ def gen2ColorCover(normVal1,normVal2, size=512,genRand=False):
 
     else:
         colorNorm1 = cm.bwr(normVal1)
-        colorNorm2 = cm.viridis(normVal2)
+        colorNorm2 = cm.inferno(normVal2)#cm.viridis(normVal2)
 #        colorUse = tuple([int(colorIdx*256) for colorIdx in colorNorm])
         artColor1 = tuple([int(colorIdx * 256) for colorIdx in colorNorm1[0:3]])
         artColor2 = tuple([int(colorIdx * 256) for colorIdx in colorNorm2[0:3]])
@@ -67,6 +85,26 @@ def vertGradient(draw, rect, color_func, color_palette):
         color = color_func(minval, maxval, val, color_palette)
     #    print(color)
         draw.line([(rect.min.x, y), (rect.max.x, y)], fill=color)
+
+def circGradient(draw, rect, color_func, color_palette):
+    from math import ceil,sqrt
+    minval, maxval = 1, len(color_palette)
+    delta = maxval - minval
+    width = float(rect.width)  # Cache.
+
+    center_x = rect.min.x + (ceil(rect.max.x-rect.min.x)/2)
+    center_y = rect.min.y + (ceil(rect.max.y-rect.min.y)/2)
+
+    # draw background square
+    color = color_func(minval, maxval, maxval, color_palette)
+    draw.rectangle([(rect.min.x, rect.min.y), (rect.max.x, rect.max.y)], fill=color)
+
+    # for x in range(0, ceil((rect.max.x-rect.min.x)/2)+1):
+    for x in range(ceil((rect.max.x-rect.min.x)/2*sqrt(2)),-1,-1):
+        f = x / width * 2
+        val = minval + f * delta
+        color = color_func(minval, maxval, val, color_palette)
+        draw.ellipse([(center_x-x, center_y-x), (center_x+x, center_y+x)], outline=color,width=2)
 
 class Point(object):
     def __init__(self, x, y):

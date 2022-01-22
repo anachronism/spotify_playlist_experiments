@@ -265,7 +265,8 @@ app.layout = html.Div(children=[
     Input('btnState','n_clicks'),
     State('node-box', 'value'))
 def updateClusterSel(n_clicks,nodeStrIn):
-
+    # print("updateClusterSel:")
+    # print(nodeStrIn)
     nodePlot = utils.parseNodeInputStr(nodeStrIn,nPlaylists)
     df_drawn = df_clustered[df_clustered['Cluster'].isin(nodePlot)]
    # print(indsColor)
@@ -358,7 +359,8 @@ def saveCurrentPlaylist(n_clicks,nodeIn):
     Input('playlistSaveBtn_2','n_clicks'),
     State('node-box','value'))
 def savePlaylistsCluster(n_clicks,nodeStrIn):
-
+    print("savePlaylistCluster:")
+    print(nodeStrIn)
     playlistInd = utils.parseNodeInputStr(nodeStrIn,nPlaylists)
   #  playlistInd = playlistInd[0]
 

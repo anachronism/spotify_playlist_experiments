@@ -19,7 +19,7 @@ fid_dw = "/".join((model_folder,"dw_compiled.pkl"))
 fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
-mode = "modifySounds"#"initEdgePulse"
+mode = "recDrawPlaylist"#"initEdgePulse"
 if mode == "modifySounds":
     trackDF = pd.read_pickle(fid_sounds)
     idsAdjust = list(trackDF["Track ID"])
@@ -142,13 +142,13 @@ elif mode == "recDrawPlaylist":
     today = datetime.date.today()
     djDate = today.strftime("%m/%d/%Y")
 
-    plSearch="wip | mode2"#"The Downselect, July 2021 Week 3"#"The Downselect"
-
+    plSearch="Genre Selects: Lofi + beats "#"The Downselect, July 2021 Week 3"#"The Downselect"
+    print("here")
     targetSampleSize = 100 #20
-    ITER_MAX = 100
-    tempoDelta = 10
-    keyDelta = 3#6
-    popRange = [0, 100]
+    ITER_MAX = 50#100
+    tempoDelta = 5
+    keyDelta = 3#3#6
+    popRange = [0, 60]
 
     plName = "DJ Pull "+ djDate+" " + plSearch
     si.getDJrecs(sp,plSearch,plName,targetSampleSize,tempoDelta,keyDelta,popRange,ITER_MAX)
@@ -211,12 +211,12 @@ elif mode == "recsQuery":
     # There's a lot of things that this can be used for (can limit tempo, key etc in rec search and use artists as target)
     #This will become a function when I decide what I want to do with it
     # Can also seed with artists and genres. Max of 5 seeds total.
-    plSearch="traffic_soundbwoy_radio"#"The Downselect, July 2021 Week 3"#"The Downselect"
+    plSearch="Genre Selects: Lofi + beats"#"The Downselect, July 2021 Week 3"#"The Downselect"
     targetSampleSize = 100#5*2  #20
     pl_id = si.getPlaylistID(sp,plSearch)
     trackDict,analysisDict = si.getTracksFromPlaylist(sp,pl_id,True,True)
     trackDF  = si.tracksToDF(trackDict,analysisDict)
-    tempoRange = [78, 85]
+    tempoRange = [80,87]#[78, 85]
     trackIDs  =  [item["id"] for item in trackDict if item["id"]]
     popRange = [0,60]
     recIDs = []
@@ -234,3 +234,5 @@ elif mode == "recsQuery":
         print(str(iterCount) + " : " + str(len(recIDsUnique)))
     ### TODO: get recTracks into recIDsUnique format, get sp.audio_features() of the ids to djsort similar playlists.
     si.createPlaylist(sp,"Similar to "+plSearch,recIDsUnique,incAnalysis = False)
+else:
+    print("Invalid command string.")

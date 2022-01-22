@@ -337,14 +337,17 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
 
         ### TODO: map this more reasonably, do a gradient.
         genRand = False
+        coverArt =  pl_im.gen2ColorCircleCover(energyMean,valenceMean,2048,genRand)
+
     else: #Assuming for the moment else is a list of IDs
         strDescription = "Created "+ dtString
         energyMean = 0
         valenceMean = 0
         genRand = True
+        coverArt =  pl_im.gen2ColorCover(energyMean,valenceMean,2048,genRand)
+
     # Make co
     # coverArt =  pl_im.genSolidCover(energyMean,512,genRand)
-    coverArt =  pl_im.gen2ColorCover(energyMean,valenceMean,512,genRand)
     output_buffer = BytesIO()
     coverArt.save(output_buffer,format="JPEG")
     coverArt_b64 = base64.b64encode(output_buffer.getvalue())

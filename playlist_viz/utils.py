@@ -6,7 +6,7 @@ import pandas as pd
 def getExtrema(dfIn,categories,rangePrint):
     df_min = pd.DataFrame()
     df_max = pd.DataFrame()
-    
+
     dfDownsel = dfIn.groupby(['Cluster']).mean()
     for cat in categories:
         df_sort = dfDownsel.sort_values(by=[cat],ascending = True)
@@ -18,7 +18,7 @@ def getExtrema(dfIn,categories,rangePrint):
         df_max_tmp = dfIn[dfIn["Cluster"] == idxMax]
         df_max_tmp = df_max_tmp.assign(Category= [cat] * len(df_max_tmp.index))
         df_max_tmp = df_max_tmp.assign(Extrema= ["Max"] * len(df_max_tmp.index))
-        
+
 
         df_min = df_min.append(df_min_tmp)
         df_max = df_max.append(df_max_tmp)
@@ -30,16 +30,18 @@ def getExtrema(dfIn,categories,rangePrint):
         maxStr = str(maxVals)
         print("Min "+ cat + ": "+ minStr)
         #print(df_sort[cat].iloc[idxValsMin].values)
-        print("Max "+ cat + ": "+ maxStr)    
+        print("Max "+ cat + ": "+ maxStr)
     return df_min,df_max
 ##### Parsing things
 #return list of int values
 def parseNodeInputStr(strIn, nClusters):
-    inVals = strIn.split(',')	
+    inVals = strIn.split(',')
 
     # Have to decide how I want to handle error cases
     xInt = [int(x) for x in inVals]
     #	idx = np.where(xInt >= nClusters)
+    print("NC:" + str(nClusters))
+    print(xInt)
     xOut = [(nClusters-1) if (idx >= nClusters) else idx for idx in xInt]
     return xOut
 
@@ -56,15 +58,15 @@ def drawClusters(dfIn, nClustersOut = 6,distance = 'l2',centersAvoid = []):
     clustersOut = np.zeros((nClustersOut,npIn.shape[1]))
     clustersOut[0,:] = npIn[indDraw[0],:]
 
-    for ind in range(1,nClustersOut):		
+    for ind in range(1,nClustersOut):
             npUse = np.tile(clustersOut[ind-1,:],(nClustersIn,1))#np.transpose([clustersOut[ind-1,:]] * nClustersIn)
             offsetPoints = (npUse - npIn)
-            pointDist = np.apply_along_axis(np.linalg.norm,1,offsetPoints)			
+            pointDist = np.apply_along_axis(np.linalg.norm,1,offsetPoints)
             indSelect = np.where(pointDist > thresh)
             indSelect = indSelect[0]
-            #print(indSelect)	
+            #print(indSelect)
             valChosen = False
-            while not valChosen:	
+            while not valChosen:
                 indAdd = np.random.choice(indSelect)
                 if not (int(indAdd) in indDraw) and not(int(indAdd) in centersAvoid):
                     indDraw.append(indAdd)
@@ -72,4 +74,3 @@ def drawClusters(dfIn, nClustersOut = 6,distance = 'l2',centersAvoid = []):
                     valChosen = True
 
     return indDraw
-
