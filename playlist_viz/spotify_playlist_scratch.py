@@ -19,30 +19,27 @@ fid_dw = "/".join((model_folder,"dw_compiled.pkl"))
 fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
-mode = "archivePlaylists"#"initEdgePulse"
+mode = "dedupCrates"#"initEdgePulse"
 if mode == "importCSV":
     csvFolder = "playlist_csvs/playlists_feb2021_archive/"
-    csvImport = csvFolder+"winter_2019_new_york_new_me.csv"
-    si.csv2playlist(sp,csvImport, "2019: New York New Me")
+    csvImport = csvFolder+"the_downselect_december_2020.csv"
+    si.csv2playlist(sp,csvImport, "The Downselect, December 2020")
 
 elif mode == "archivePlaylists": #### THIS I still need to test.
     exportFolder = "playlist_csvs/archive/"
-    plSearchString = "The Downselect,"
-    si.savePlaylistsToCSV(sp,plSearchString,exportFolder,False)
-    # plId,plName = si.getPlaylistID(sp,plSearchString,retName=True)
-    #
-    # trackDict,afDict = si.getTracksFromPlaylist(sp,plId,ret_track_info=True,ret_af=True,ret_pl_info=False)
-    # saveDF = si.tracksToDF(trackDict,afDict)
-    # si.saveTrackDF(saveDF,exportFolder+plName+".csv")
+    si.saveUserPlaylistsToCSV(sp,exportFolder)
 
 elif mode == "dedupCrates":
     si.dedupDF(fid_sounds)
-    si.pickle2csv(fid_sounds,"sounds_compiled.csv")
+    # si.removeSavedTracks_df(sp,fid_sounds)
+    si.pickle2csv(fid_sounds,"playlist_csvs/sounds_compiled.csv")
     si.dedupDF(fid_edge)
-    si.pickle2csv(fid_edge,"edge_compiled.csv")
+    si.pickle2csv(fid_edge,"playlist_csvs/edge_compiled.csv")
     si.dedupDF(fid_pulse)
-    si.pickle2csv(fid_pulse,"pulse_compiled.csv")
-
+    si.pickle2csv(fid_pulse,"playlist_csvs/pulse_compiled.csv")
+    si.dedupDF(fid_crate)
+    si.pickle2csv(fid_pulse,"playlist_csvs/crates_compiled.csv")
+    
 elif mode == "getAlbumsFromIds":
     playID = si.getPlaylistID(sp,"DJ Pull 01/22/2022 The Downselect, 2021")
     idsAdjust = si.getTracksFromPlaylist(sp,playID,ret_track_info = False,ret_af = False,ret_pl_info=False)

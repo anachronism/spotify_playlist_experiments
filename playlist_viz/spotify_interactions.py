@@ -117,6 +117,32 @@ def getPlaylistIDs(sp,strName,retName=False):
     else:
         return idsRet
 
+def getUserPlaylistIDs(sp,retName=False):
+    currUser = sp.me()
+    userID = currUser["id"]
+
+    idsRet = []
+    namesRet = []
+    offset = 0
+    currVal = sp.current_user_playlists(limit=50, offset=offset)
+    while not (currVal["next"] is None):
+        currVal = sp.current_user_playlists(limit=50, offset=offset)
+        plList = currVal["items"]
+
+        tmp = [item for item in plList if (userID==item["owner"]["id"]) ]
+        for elt in tmp:
+            idsRet.append(elt["id"])
+            if retName:
+                namesRet.append(elt["name"])
+            # print(elt["name"])
+
+        offset = offset +currVal["limit"]
+    if retName:
+        return idsRet,namesRet
+    else:
+        return idsRet
+
+
 # getTracksFromPlaylist(sp,plID,ret_track_info,ret_af):
 # With sp handle and playlist ID, return list with info. if ret_track_info is True, it will return the whole song structure,
 # otherwise it returns a list of track IDs. If ret_af is True it also returns the audio-features object for each track.
@@ -977,7 +1003,7 @@ def tracksToDF(tracks,af,artistList = False):
         albumObj = albumObj + [eltAdd]
 
     tmp = []
-    logging.info("trackstodf|Past initial albumobj")
+    # logging.info("trackstodf|Past initial albumobj")
 
     for elt in albumObj:
         if elt:
@@ -991,7 +1017,7 @@ def tracksToDF(tracks,af,artistList = False):
             tmp = tmp + [{"name":"N/A","uri":"spotify:artist:5getpnTxZMpYRlfyXOjQQw"}]
 
     # print(tmp[0])
-    logging.info("trackstodf|past artist gathering")
+    # logging.info("trackstodf|past artist gathering")
 #    print(albumObj)
     artistObjs = tmp #[x["album"]["artists"] for x in tracks]
     artistName = []
@@ -1005,7 +1031,7 @@ def tracksToDF(tracks,af,artistList = False):
     if artistList:
         artistName = [','.join(x) for x in artistName]
         artistURI =  [','.join(x) for x in artistURI]
-        logging.info("trackstodf|past artist list forming.")
+        # logging.info("trackstodf|past artist list forming.")
     print(tracks[0].keys())
     print(af[0].keys())
 
@@ -1030,12 +1056,12 @@ def tracksToDF(tracks,af,artistList = False):
         "TimeSig":[x["time_signature"] for x in af],
         "Valence":[x["valence"] for x in af],
     }
-    logging.info("trackstodf|past track dict forming.")
+    # logging.info("trackstodf|past track dict forming.")
 
     retDF = pd.DataFrame.from_dict(trackDict)
     retDF = djMapKey(retDF)
 
-    logging.info("trackstodf|Exiting")
+    # logging.info("trackstodf|Exiting")
     return retDF
 
 
@@ -1096,3 +1122,15 @@ def savePlaylistsToCSV(sp,plSearch,fileDir,sortTempo=False):
             df_save = getTracksWithTempo(df_save,[0, 300],False)
 
         saveTrackDF(df_save,fileDir+fNameSanitized+".csv")
+
+def saveUserPlaylistsToCSV(sp,fileDir,sortTempo=False):
+    plIDs,plNames = getUserPlaylistIDs(sp,retName=True)
+    for idx,elt in enumerate(plIDs):
+        tracksSave,audioFeatures = getTracksFromPlaylist(sp,plIDs[idx])
+        if tracksSave:
+            df_save = tracksToDF(tracksSave,audioFeatures)
+            fNameSanitized = utils.slugify(plNames[idx])
+            if sortTempo:
+                df_save = getTracksWithTempo(df_save,[0, 300],False)
+            saveTrackDF(df_save,fileDir+fNameSanitized+".csv")
+# def getCurrentUserPlaylists(sp):

@@ -9,7 +9,7 @@ from crate_compile import crateCompile
 from song_corpus_analysis import analyseSongCorpus
 from spotify_interactions import createPlaylist,initSpotipy
 import spotify_interactions as si
-import logging
+import logging,os
 #Obviously since everything is written out it's not optimal.
 today=datetime.date.today()
 
@@ -35,6 +35,7 @@ runBools_rotate_tempo[1] = 1
 runBools_rotate_tempo[3] = 1
 
 runBools_all = np.ones((5,))
+runBools_none = np.zeros((5,))
 # runBools = runBools_sample
 runBools = runBools_all
 
@@ -52,8 +53,8 @@ runCompileFcns = runBools[0]
 runDownselCycle = runBools[1]
 runPlSample = runBools[2]
 runTempoRecs = runBools[3]
-runCrateCompile = 0#runBools[4]
-
+runCrateCompile = False#runBools[4]
+runPlArchive = (today.day == 2)
 
 now = datetime.datetime.now()
 dtString=now.strftime("%m/%d/%Y")
@@ -283,8 +284,26 @@ if FLAG_RUN:
 
         except Exception as e:
             logging.error(e)
-            logging.error("Cllustering subsample failed.")
+            logging.error("Clustering subsample failed.")
             retVal += 16
+
+    if runPlArchive:
+        try:
+            now = datetime.datetime.now()
+            dtString=now.strftime("%m-%Y")
+            archiveFolder = "playlist_csvs/archive_"+dtString
+            if not os.path.exists(archiveFolder):
+                os.mkdir(archiveFolder)
+            archiveFolder = "playlist_csvs/archive_"+dtString+"/"
+            si.saveUserPlaylistsToCSV(sp,archiveFolder)
+            # searchStrings = ["The Downselect,","Genre Selects"]
+            # for plSearch in searchStrings:
+            #     si.savePlaylistsToCSV(sp,plSearch,archiveFolder,False)
+
+        except Exception as e:
+            logging.error(e)
+            logging.error("Playlist Archival failed.")
+            retVal += 32
 
 print("Returns: " + str(retVal))
 logging.info("TOP | Return: "+ str(retVal))
