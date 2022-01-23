@@ -36,11 +36,11 @@ runBools_rotate_tempo[3] = 1
 
 runBools_all = np.ones((5,))
 # runBools = runBools_sample
-runBools = runBools_sample#runBools_all
+runBools = runBools_all
 
 #downsel, rr, dw, edge, pulse, sounds
-#plGenIdx = [0,1,2,3,4,5]
-plGenIdx = [6]
+plGenIdx = [0,1,2,3,4,5,6]
+# plGenIdx = [6]
 # plGenIdx = [1,2,3,4,5]
 # plGenIdx = [2]
 # plGenIdx = [3]
@@ -111,7 +111,7 @@ if FLAG_RUN:
             if idsAdjust:
                fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
                df_ret = si.addAlbumsToCrate(sp,idsAdjust,fid_crate)
-               si.saveTrackDF(df_ret,"crates_compiled.csv")
+               si.saveTrackDF(df_ret,"playlist_csvs/crates_compiled.csv")
                si.addToPlaylist(sp,"downselect_downselect_listen",idsAdjust)
                print("added!")
 
@@ -178,9 +178,6 @@ if FLAG_RUN:
                     si.clusterSinglePlaylist(sp,model_folder,fid_in,False,nPlaylists,analyzeCorpus=calcClusters,out_append=plOut, pklIn=True)
 
             #df sampled ones.
-
-
-
 
         except Exception as e:
             logging.error(e)

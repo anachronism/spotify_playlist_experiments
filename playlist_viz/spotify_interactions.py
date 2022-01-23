@@ -62,7 +62,7 @@ Useful things.
 '''
 ## ID acquisitions
 # getPlaylistID(sp,strName): With sp handle, get the first playlist that has a title that directly matches the provided string.
-def getPlaylistID(sp,strName):
+def getPlaylistID(sp,strName,retName=False):
     # search, must match.
     currUser = sp.me()
     userID = currUser["id"]
@@ -77,19 +77,27 @@ def getPlaylistID(sp,strName):
         tmp = next((item for item in plList if item["name"] == strName),None)
         if not (tmp is None):
             foundPlaylist = True
-            return tmp["id"]
+            print(tmp)
+            if retName:
+                return tmp["id"],tmp["name"]
+            else:
+                return tmp["id"]
         else:
             offset = offset +currVal["limit"]
 
         if (currVal["next"] is None):
-            return -1
+            if retName:
+                return -1,''
+            else:
+                return -1
 
 # getPlaylistIDs(sp,strName): With sp handle, get all playlist IDs that have titles that have a provided substring.
-def getPlaylistIDs(sp,strName):
+def getPlaylistIDs(sp,strName,retName=False):
     currUser = sp.me()
     userID = currUser["id"]
 
     idsRet = []
+    namesRet = []
     offset = 0
     currVal = sp.current_user_playlists(limit=50, offset=offset)
     while not (currVal["next"] is None):
@@ -99,11 +107,15 @@ def getPlaylistIDs(sp,strName):
         tmp = [item for item in plList if (strName.lower() in item["name"].lower()) ]
         for elt in tmp:
             idsRet.append(elt["id"])
+            if retName:
+                namesRet.append(elt["name"])
             # print(elt["name"])
 
         offset = offset +currVal["limit"]
-
-    return idsRet
+    if retName:
+        return idsRet,namesRet
+    else:
+        return idsRet
 
 # getTracksFromPlaylist(sp,plID,ret_track_info,ret_af):
 # With sp handle and playlist ID, return list with info. if ret_track_info is True, it will return the whole song structure,
@@ -159,67 +171,31 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True, ret_pl_in
 
     return tuple(retVals)
 
-
-def djMapKey(dfIn):
-    dict_keymap_maj = {
-        0:1,
-        1:8,
-        2:3,
-        3:10,
-        4:5,
-        5:12,
-        6:7,
-        7:2,
-        8:9,
-        9:4,
-        10:11,
-        11:6
-    }
-
-    dict_keymap_min = {
-            0:10,
-            1:5,
-            2:12,
-            3:7,
-            4:2,
-            5:9,
-            6:4,
-            7:11,
-            8:6,
-            9:1,
-            10:8,
-            11:3
-        }
-
-    df_major = dfIn[dfIn["Mode"] == 1]
-    df_minor = dfIn[dfIn["Mode"] == 0]
-    df_maj_out = df_major
-    df_min_out = df_minor
-
-    df_maj_out["DJ Key"] = df_major["Key"].map(dict_keymap_maj)
-    df_min_out["DJ Key"] = df_minor["Key"].map(dict_keymap_min)
-
-    dfOut = pd.concat([df_maj_out,df_min_out],sort=False)
-    return dfOut
-
-# Sort df in the following manner. Group by bpm
-def djSort(df_in,tempoRange,keyRange):
-    df_tempoSort = getTracksWithTempo(df_in,tempoRange)
-
-    # These values are under the assumption that the spotify notation is in "Major" keys. Looks like it doesn't matter immediately, can check though.
-    # mapping keys to the way traktor sorts keys, so that close values are easier to mix into.
-
-#    df_tempoSort = djMapKey(df_tempoSort)
-    tempo_vals = df_tempoSort["Tempo"]
-    tempo_vals = np.floor(tempo_vals)
-    tempo_vals_unique = np.unique(tempo_vals)
-
-    df_out = pd.DataFrame()
-    for t_val in tempo_vals_unique:
-        ### TODO: low priority. Add additional major/minor sorting here.
-        df_add = getTracksWithinRange(df_tempoSort[tempo_vals==t_val],"DJ Key",keyRange)
-        df_out = pd.concat((df_out,df_add))
+#get tracks within certain range of values
+def getTracksWithinRange(df_in,category,catRange):
+    df_tmp = df_in[df_in[category] >= catRange[0]]
+    df_out = df_tmp[df_tmp[category] <= catRange[1]]
+    df_out = df_out.sort_values(by=[category],ascending = True)
     return df_out
+
+
+# get tracks with set Tempo
+def getTracksWithTempo(df_in,bpmRange,checkDouble = True):
+    df_tmp = df_in[df_in["Tempo"] >= bpmRange[0]]
+    df_out = df_tmp[df_tmp["Tempo"] <= bpmRange[1]]
+    if checkDouble:
+        df_tmp = df_in[df_in["Tempo"]>= bpmRange[0]*2]
+        df_z2 = df_tmp[df_tmp["Tempo"] <= bpmRange[1]*2]
+
+        col_tmp = df_z2["Tempo"]
+        col_tmp /= 2
+        df_z2["Tempo"] = col_tmp
+
+        df_out = pd.concat((df_out,df_z2))
+
+    df_out = df_out.sort_values(by=["Tempo"],ascending = True)
+    return df_out
+
 
 '''
 Playlist data analysis stuff. df_in
@@ -259,30 +235,6 @@ def getTopGenres(sp,df_in):
     #artistObjs = sp.Artists(df_in["Artist URI"])
 
 
-#get tracks within certain range of values
-def getTracksWithinRange(df_in,category,catRange):
-    df_tmp = df_in[df_in[category] >= catRange[0]]
-    df_out = df_tmp[df_tmp[category] <= catRange[1]]
-    df_out = df_out.sort_values(by=[category],ascending = True)
-    return df_out
-
-
-# get tracks with set Tempo
-def getTracksWithTempo(df_in,bpmRange,checkDouble = True):
-    df_tmp = df_in[df_in["Tempo"] >= bpmRange[0]]
-    df_out = df_tmp[df_tmp["Tempo"] <= bpmRange[1]]
-    if checkDouble:
-        df_tmp = df_in[df_in["Tempo"]>= bpmRange[0]*2]
-        df_z2 = df_tmp[df_tmp["Tempo"] <= bpmRange[1]*2]
-
-        col_tmp = df_z2["Tempo"]
-        col_tmp /= 2
-        df_z2["Tempo"] = col_tmp
-
-        df_out = pd.concat((df_out,df_z2))
-
-    df_out = df_out.sort_values(by=["Tempo"],ascending = True)
-    return df_out
 
 
 '''
@@ -395,24 +347,6 @@ def addToPlaylist(sp,playlistName,objIn):
 
     sp.playlist_add_items(plID,objIn[numRun*100:])
 
-def compilePlaylists_dicts(sp,playlistSearch):
-    pl_ids = getPlaylistIDs(sp,playlistSearch)
-    pl_ids = list(filter(None,pl_ids))
-    pl_ids = [elt for elt in pl_ids if elt!='37i9dQZEVXcScWD9gb8qCj']
-
-    trackDicts = []
-    analysisDict = []
-    for playID in pl_ids:
-        # print(playID)
-        (tmpTrack,tmpAf)= getTracksFromPlaylist(sp,playID,True,True)
-        trackDicts = trackDicts + tmpTrack
-        analysisDict = analysisDict + tmpAf
-
-    idxUse = [idx for idx,val in enumerate(analysisDict) if not (val is None)]
-    trackDictUse = [trackDicts[idx] for idx in idxUse]
-    analysisDictUse = [analysisDict[idx]for idx in idxUse]
-    return trackDictUse,analysisDictUse
-
 def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
     dw_ids = getPlaylistIDs(sp,playlistSearch)
     dw_ids = list(filter(None,dw_ids))
@@ -445,6 +379,27 @@ def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
     #### TODO: understand why this is losing some of the tracks.
     createPlaylist(sp,playlistTitle,tracksOut)
 
+
+'''
+Pickle based crate functions.
+'''
+def compilePlaylists_dicts(sp,playlistSearch):
+    pl_ids = getPlaylistIDs(sp,playlistSearch)
+    pl_ids = list(filter(None,pl_ids))
+    pl_ids = [elt for elt in pl_ids if elt!='37i9dQZEVXcScWD9gb8qCj']
+
+    trackDicts = []
+    analysisDict = []
+    for playID in pl_ids:
+        # print(playID)
+        (tmpTrack,tmpAf)= getTracksFromPlaylist(sp,playID,True,True)
+        trackDicts = trackDicts + tmpTrack
+        analysisDict = analysisDict + tmpAf
+
+    idxUse = [idx for idx,val in enumerate(analysisDict) if not (val is None)]
+    trackDictUse = [trackDicts[idx] for idx in idxUse]
+    analysisDictUse = [analysisDict[idx]for idx in idxUse]
+    return trackDictUse,analysisDictUse
 
 
 def crateCompile(sp,fid_in="pkl_vals/crates_compiled.pkl",searchIDs=["/* ","The Downselect"], removeLiked=False):
@@ -494,6 +449,31 @@ def crateCompile(sp,fid_in="pkl_vals/crates_compiled.pkl",searchIDs=["/* ","The 
 
     return len(trackDF.index)
 
+def crateCompileSingle(sp,fid_in="pkl_vals/crates_compiled.pkl",searchID="Combined Edge Playlists"):
+    fid_inputPkl = fid_in
+#    sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
+    ## TODO: additional playlist age filter for drawing playlists.
+    playID = getPlaylistID(sp,searchID)
+    trackDict,analysisDict = getTracksFromPlaylist(sp,playID,True,True)
+    if analysisDict is None:
+        trackDict,analysisDict = getTracksFromPlaylist(sp,playID,True,True)
+
+    print("Num Track IDs:" + str(len(trackDict)))
+
+    idxUse = [idx for idx,val in enumerate(analysisDict) if not (val is None)]
+    trackDictUse = [trackDict[idx] for idx in idxUse]
+    analysisDictUse = [analysisDict[idx]for idx in idxUse]
+
+    # If you don't care about order then use a set instead, but I do - Max
+    trackDF = tracksToDF(trackDictUse,analysisDictUse,False)
+    trackDF = trackDF.drop_duplicates(subset=["Song URI"])
+    print("Number of unique tracks: " + str(len(trackDF.index)))
+    trackDF.to_pickle(fid_inputPkl)
+    return len(trackDF.index), playID
+
+'''
+Analysis functions.
+'''
 def clusterSinglePlaylist(sp,model_folder,fid_pulse,plSearch,nClustersDraw,analyzeCorpus,out_append, pklIn=False):
     from song_corpus_analysis import analyseSongCorpus
     if pklIn:
@@ -557,29 +537,6 @@ def clusterSinglePlaylist(sp,model_folder,fid_pulse,plSearch,nClustersDraw,analy
         df_clustered_tmp.to_pickle(fid_clustering)
         print(df_raw_short.shape[0])
 
-def crateCompileSingle(sp,fid_in="pkl_vals/crates_compiled.pkl",searchID="Combined Edge Playlists"):
-    fid_inputPkl = fid_in
-#    sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
-    ## TODO: additional playlist age filter for drawing playlists.
-    playID = getPlaylistID(sp,searchID)
-    trackDict,analysisDict = getTracksFromPlaylist(sp,playID,True,True)
-    if analysisDict is None:
-        trackDict,analysisDict = getTracksFromPlaylist(sp,playID,True,True)
-
-    print("Num Track IDs:" + str(len(trackDict)))
-
-    idxUse = [idx for idx,val in enumerate(analysisDict) if not (val is None)]
-    trackDictUse = [trackDict[idx] for idx in idxUse]
-    analysisDictUse = [analysisDict[idx]for idx in idxUse]
-
-    # If you don't care about order then use a set instead, but I do - Max
-    trackDF = tracksToDF(trackDictUse,analysisDictUse,False)
-    trackDF = trackDF.drop_duplicates(subset=["Song URI"])
-    print("Number of unique tracks: " + str(len(trackDF.index)))
-    trackDF.to_pickle(fid_inputPkl)
-    return len(trackDF.index), playID
-
-
 
 #samplePlaylists: from a playlist, generate nPlaylists randomly drawn playlists from it, and remove the songs
 def samplePlaylists(sp, plName,nPlaylists,nSongsPerPlaylist,removeTracks=True):
@@ -601,7 +558,8 @@ def samplePlaylists(sp, plName,nPlaylists,nSongsPerPlaylist,removeTracks=True):
         if removeTracks:
             removeTracksFromPlaylist(sp,pl_id,tmp1)
 
-# Given track Ids, get the albums of each and
+
+# Given track Ids, get the albums of each and add all the songs to a pkl crate
 def addAlbumsToCrate(sp,ids,fid_add):
     idsSearch = ids
     midBreak = False
@@ -811,7 +769,6 @@ def getNewTracks(sp, plSearch,plUpdate,datesSearch):
     print(len(list(tst)))
     addToPlaylist(sp,plUpdate,list(tst))
 
-
 def getDJrecs(sp,plSearch,plName,targetSampleSize,tempoDelta,keyDelta,popRange,ITER_MAX):
     pl_id = getPlaylistID(sp,plSearch)
     trackDict,analysisDict = getTracksFromPlaylist(sp,pl_id,True,True)
@@ -853,6 +810,67 @@ def getDJrecs(sp,plSearch,plName,targetSampleSize,tempoDelta,keyDelta,popRange,I
     recsDF = djSort(recsDF,tempoRange,keyRange)
     createPlaylist(sp,plName,recsDF,incAnalysis = True)
 
+# Sort df in the following manner. Group by bpm
+def djSort(df_in,tempoRange,keyRange):
+    df_tempoSort = getTracksWithTempo(df_in,tempoRange)
+
+    # These values are under the assumption that the spotify notation is in "Major" keys. Looks like it doesn't matter immediately, can check though.
+    # mapping keys to the way traktor sorts keys, so that close values are easier to mix into.
+
+#    df_tempoSort = djMapKey(df_tempoSort)
+    tempo_vals = df_tempoSort["Tempo"]
+    tempo_vals = np.floor(tempo_vals)
+    tempo_vals_unique = np.unique(tempo_vals)
+
+    df_out = pd.DataFrame()
+    for t_val in tempo_vals_unique:
+        ### TODO: low priority. Add additional major/minor sorting here.
+        df_add = getTracksWithinRange(df_tempoSort[tempo_vals==t_val],"DJ Key",keyRange)
+        df_out = pd.concat((df_out,df_add))
+    return df_out
+
+## Key mapping dataframes.
+def djMapKey(dfIn):
+    dict_keymap_maj = {
+        0:1,
+        1:8,
+        2:3,
+        3:10,
+        4:5,
+        5:12,
+        6:7,
+        7:2,
+        8:9,
+        9:4,
+        10:11,
+        11:6
+    }
+
+    dict_keymap_min = {
+            0:10,
+            1:5,
+            2:12,
+            3:7,
+            4:2,
+            5:9,
+            6:4,
+            7:11,
+            8:6,
+            9:1,
+            10:8,
+            11:3
+        }
+
+    df_major = dfIn[dfIn["Mode"] == 1]
+    df_minor = dfIn[dfIn["Mode"] == 0]
+    df_maj_out = df_major
+    df_min_out = df_minor
+
+    df_maj_out["DJ Key"] = df_major["Key"].map(dict_keymap_maj)
+    df_min_out["DJ Key"] = df_minor["Key"].map(dict_keymap_min)
+
+    dfOut = pd.concat([df_maj_out,df_min_out],sort=False)
+    return dfOut
 
 def getSimilarPlaylist(sp,plSearch,targetSampleSize,genSameSize=False,targetPopularity = 50,popRange=[0,100],tempoRange=[0,200]):
     usePopRange = True
@@ -939,6 +957,13 @@ Dataframe/spotify object interactions.
 def tracksToDF(tracks,af,artistList = False):
     # Currently, putting off the most annoying parts (indexing to get the artist name)
     logging.info("In trackstoDF")
+
+    ### TODO: figure out better way to deal with this (no af values.)
+    validIdx = [i for i,v in enumerate(af) if v != None]
+    tracks = [tracks[idx] for idx in validIdx]
+    af = [af[idx] for idx in validIdx]
+
+
     idxUse = [idx for idx,val in enumerate(tracks) if not (val is None)]
     tracks = [tracks[idx] for idx in idxUse]
     af = [af[idx]for idx in idxUse]
@@ -983,6 +1008,7 @@ def tracksToDF(tracks,af,artistList = False):
         logging.info("trackstodf|past artist list forming.")
     print(tracks[0].keys())
     print(af[0].keys())
+
     trackDict = {
         "Title": [x["name"] for x in tracks],
         "Track ID":[x["id"] for x in tracks],
@@ -1017,7 +1043,6 @@ def tracksToDF(tracks,af,artistList = False):
 Exporting to CSV
 '''
 # export playlist things to pkl file.
-
 def saveTracksFromPlaylist(sp,plName,filepath):
     playID = getPlaylistID(sp,plName)
     trackDict,analysisDict = getTracksFromPlaylist(sp,playID,True,True)
@@ -1039,12 +1064,35 @@ def saveTrackDF(df,filepath):
         dfTmp["Artist URI"] = dfTmp["Artist URI"].apply(lambda x:",".join(x))
     dfTmp.to_csv(filepath)
 
+# quick export util.
+def pickle2csv(filepath_in,filepath_out):
+    df_write = pd.read_pickle(filepath_in)
+    saveTrackDF(df_write,filepath_out)
+
+#Import csv to a playlist.
+def csv2playlist(sp,fname_in,playlist_name):
+    df_in = pd.read_csv(fname_in)
+    if not("Song URI" in df_in.index):
+        df_in["Song URI"] = df_in["Track URI"]
+    createPlaylist(sp, playlist_name,df_in,False)
+
 # Exporting playlist info to CSV
-def savePlaylistToCSV(sp,plName,filepath,sortTempo=False):
-    plID = getPlaylistID(sp,plName)
+def savePlaylistToCSV(sp,plSearch,fileDir,sortTempo=False):
+    plID,plName = getPlaylistID(sp,plSearch,retName=True)
     tracksSave,audioFeatures = getTracksFromPlaylist(sp,plID)
     df_save = tracksToDF(tracksSave,audioFeatures)
+    fNameSanitized = utils.slugify(plName)
     if sortTempo:
         df_save = getTracksWithTempo(df_save,[0, 300],False)
+    saveTrackDF(df_save,fileDir+fNameSanitized+".csv")
 
-    saveTrackDF(df_save,filepath)
+def savePlaylistsToCSV(sp,plSearch,fileDir,sortTempo=False):
+    plIDs,plNames = getPlaylistIDs(sp,plSearch,retName=True)
+    for idx,elt in enumerate(plIDs):
+        tracksSave,audioFeatures = getTracksFromPlaylist(sp,plIDs[idx])
+        df_save = tracksToDF(tracksSave,audioFeatures)
+        fNameSanitized = utils.slugify(plNames[idx])
+        if sortTempo:
+            df_save = getTracksWithTempo(df_save,[0, 300],False)
+
+        saveTrackDF(df_save,fileDir+fNameSanitized+".csv")
