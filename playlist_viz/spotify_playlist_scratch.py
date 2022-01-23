@@ -1,4 +1,4 @@
-import numpy as np
+# import numpy as np
 import pandas as pd
 import utils
 from crate_compile import crateCompile
@@ -19,8 +19,28 @@ fid_dw = "/".join((model_folder,"dw_compiled.pkl"))
 fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
-mode = "recDrawPlaylist"#"initEdgePulse"
-if mode == "modifySounds":
+mode = "dedupCrates"#"initEdgePulse"
+
+if mode == "dedupCrates":
+    si.dedupDF(fid_sounds)
+    si.dedupDF(fid_edge)
+    si.dedupDF(fid_pulse)
+elif mode == "getAlbumsFromIds":
+    playID = si.getPlaylistID(sp,"DJ Pull 01/22/2022 The Downselect, 2021")
+    idsAdjust = si.getTracksFromPlaylist(sp,playID,ret_track_info = False,ret_af = False,ret_pl_info=False)
+    df_ret = si.addAlbumsToCrate(sp,idsAdjust,fid_crate)
+    si.saveTrackDF(df_ret,"crates_compiled.csv")
+
+elif mode == "modifyCrate":
+    trackDF = pd.read_pickle(fid_crate)
+    idsAdjust = list(trackDF["Track ID"])
+    now = datetime.datetime.now()
+    dtString = now.strftime("%m/%d/%Y")
+    trackDF["Date Added"] = dtString
+    trackDF.to_pickle(fid_crate)
+    si.saveTrackDF(trackDF,'crates_compiled.csv')
+
+elif mode == "modifySounds":
     trackDF = pd.read_pickle(fid_sounds)
     idsAdjust = list(trackDF["Track ID"])
     now = datetime.datetime.now()
@@ -28,7 +48,7 @@ if mode == "modifySounds":
     trackDF["Date Added"] = dtString
     trackDF.to_pickle(fid_crate)
     si.saveTrackDF(trackDF,'sounds_compiled.csv')
-if mode == "initSounds":
+elif mode == "initSounds":
     plCompile_sounds = "The Sound of"
     si.saveTracksFromPlaylists(sp,plCompile_sounds,fid_sounds)
     print("Sounds compiled!")

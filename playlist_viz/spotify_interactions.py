@@ -41,7 +41,7 @@ def removeUnplayableSongs(sp,plNames):
     else:
         tracks_pl,analysis_pl = getTracksFromPlaylist(sp,pl_id,True,True)
         df_pl = tracksToDF(tracks_pl,analysis_pl,False)
-        print(df_pl["market"])
+        # print(df_pl["market"])
         df_remove = df_pl[not df_pl["market"].isin(["us"])]
         #### NOTE: This needs to be finished.
         return df_remove
@@ -133,11 +133,12 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True, ret_pl_in
 
         plHandle = sp.playlist_items(plID,offset = offset)#,market=currMarket)
         tracksNew = [item["track"] for item in plHandle["items"]]
+        tracksNew = list(filter(None,tracksNew))
+
         trackDates = [item["added_at"] for item in plHandle["items"]]
         tracksSave = tracksSave + tracksNew
         trackDates_save += trackDates
 
-        tracksNew = list(filter(None,tracksNew))
         newIDs = [item["id"]for item in tracksNew if item["id"]]
         trackIds = trackIds + newIDs
 
@@ -402,7 +403,7 @@ def compilePlaylists_dicts(sp,playlistSearch):
     trackDicts = []
     analysisDict = []
     for playID in pl_ids:
-        print(playID)
+        # print(playID)
         (tmpTrack,tmpAf)= getTracksFromPlaylist(sp,playID,True,True)
         trackDicts = trackDicts + tmpTrack
         analysisDict = analysisDict + tmpAf
@@ -457,7 +458,7 @@ def crateCompile(sp,fid_in="pkl_vals/crates_compiled.pkl",searchIDs=["/* ","The 
     ## TODO: additional playlist age filter for drawing playlists.
     for playlistSearch in searchIDs:
         pl_ids = getPlaylistIDs(sp,playlistSearch)
-        print(pl_ids)
+        # print(pl_ids)
         for playID in pl_ids:
             print(playID)
             tmp1,tmp2 = getTracksFromPlaylist(sp,playID,True,True)
@@ -600,6 +601,71 @@ def samplePlaylists(sp, plName,nPlaylists,nSongsPerPlaylist,removeTracks=True):
         if removeTracks:
             removeTracksFromPlaylist(sp,pl_id,tmp1)
 
+# Given track Ids, get the albums of each and
+def addAlbumsToCrate(sp,ids,fid_add):
+    idsSearch = ids
+    midBreak = False
+    trackDict = []
+
+    while (len(idsSearch)>0) and (not midBreak):
+        if len(idsSearch) > 50:
+            tmp = sp.tracks(idsSearch[0:50])
+            trackDict += tmp["tracks"]
+            idsSearch = idsSearch[50:]
+        else:
+            tmp = sp.tracks(idsSearch)
+            trackDict += tmp["tracks"]
+            midBreak = True
+
+    albumDict = [elt["album"] for elt in trackDict]
+    logging.info("addAlbumsToCrate|Albums dict formed")
+
+    trackDict = []
+    afDict = []
+
+    for album in albumDict:
+        tmp = sp.album_tracks(album["id"])
+        tmpTracks = tmp["items"]
+        tmpTracks = list(filter(None,tmpTracks))
+        ### TODO: Do this more pythonic.
+
+        for idx,track in enumerate(tmpTracks): ###NOTE: this is really jank lol
+            tmpTracks[idx]["album"] = album
+
+        trackDict += tmpTracks
+
+        newIDs = [item["id"]for item in tmpTracks if item["id"]]
+        afDict = afDict + sp.audio_features(newIDs)
+
+    validIdx = [i for i,v in enumerate(afDict) if v != None]
+    trackDict = [trackDict[idx] for idx in validIdx]
+    afDict = [afDict[idx] for idx in validIdx]
+
+    logging.info("addAlbumsToCrate|TrackDict formed")
+    newDF = tracksToDF(trackDict,afDict)
+    now = datetime.now()
+    dtString = now.strftime("%m/%d/%Y")
+    newDF["Date Added"] = dtString
+    print(newDF)
+
+    ## Add new df to the existing one.
+    df_in = pd.read_pickle(fid_add)
+    print(df_in.shape)
+
+    df_concat = pd.concat([df_in,newDF])
+    df_concat = df_concat.drop_duplicates(subset=["Track ID"])
+    df_out = df_concat.drop_duplicates(subset=["Title","Duration_ms"])
+    print(df_out.shape)
+
+
+    df_out.to_pickle(fid_add)
+    return df_out
+
+def dedupDF(fid_in):
+    df_in = pd.read_pickle(fid_in)
+    df_in = df_in.drop_duplicates(subset=["Track ID"])
+    df_out = df_in.drop_duplicates(subset=["Title","Duration_ms"])
+    df_out.to_pickle(fid_in)
 
 def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True):
     today=date.today()
@@ -613,7 +679,7 @@ def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True):
     idsAdjust = []
     # def not pythonic but whatever at the moment
     for (idx,elt) in enumerate(tr_times_datetime):
-        if right_now-tr_times_datetime[idx] > timedelta(days=7):
+        if right_now-tr_times_datetime[idx] > timedelta(days=nDaysCycle):
             idsAdjust += [tr_ids[idx]]
 
     date_str_add = datetime.strftime(today,"%B %Y")
@@ -877,17 +943,30 @@ def tracksToDF(tracks,af,artistList = False):
     tracks = [tracks[idx] for idx in idxUse]
     af = [af[idx]for idx in idxUse]
 
-    albumObj = [x["album"] for x in tracks ]
+    albumObj = []
+    for elt in tracks:
+        if elt["album"]:
+            eltAdd = elt["album"]
+        else:
+            eltAdd = None
+        albumObj = albumObj + [eltAdd]
+
     tmp = []
-    print(albumObj)
+    logging.info("trackstodf|Past initial albumobj")
+
     for elt in albumObj:
         if elt:
-            tmp = tmp + [elt["artists"]]
+            if elt["artists"]:
+#                print(elt["artists"])
+                tmp = tmp + [elt["artists"]]
+            else:
+                tmp = tmp + [{"name":"N/A","uri":"spotify:artist:5getpnTxZMpYRlfyXOjQQw"}]
+
         else:
             tmp = tmp + [{"name":"N/A","uri":"spotify:artist:5getpnTxZMpYRlfyXOjQQw"}]
 
-    print(tmp[0])
-
+    # print(tmp[0])
+    logging.info("trackstodf|past artist gathering")
 #    print(albumObj)
     artistObjs = tmp #[x["album"]["artists"] for x in tracks]
     artistName = []
@@ -901,7 +980,9 @@ def tracksToDF(tracks,af,artistList = False):
     if artistList:
         artistName = [','.join(x) for x in artistName]
         artistURI =  [','.join(x) for x in artistURI]
-
+        logging.info("trackstodf|past artist list forming.")
+    print(tracks[0].keys())
+    print(af[0].keys())
     trackDict = {
         "Title": [x["name"] for x in tracks],
         "Track ID":[x["id"] for x in tracks],
@@ -922,12 +1003,13 @@ def tracksToDF(tracks,af,artistList = False):
         "Tempo":[x["tempo"] for x in af],
         "TimeSig":[x["time_signature"] for x in af],
         "Valence":[x["valence"] for x in af],
-
     }
+    logging.info("trackstodf|past track dict forming.")
+
     retDF = pd.DataFrame.from_dict(trackDict)
     retDF = djMapKey(retDF)
 
-    logging.info("Exiting")
+    logging.info("trackstodf|Exiting")
     return retDF
 
 
@@ -944,7 +1026,7 @@ def saveTracksFromPlaylist(sp,plName,filepath):
 
 def saveTracksFromPlaylists(sp,plName,filepath):
     trackDict,analysisDict = compilePlaylists_dicts(sp,plName)
-    print(trackDict[0].keys())
+#    print(trackDict[0].keys())
     trackDF = tracksToDF(trackDict,analysisDict,False)
     trackDF.to_pickle(filepath)
 

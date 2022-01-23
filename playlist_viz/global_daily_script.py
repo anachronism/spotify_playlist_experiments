@@ -25,6 +25,9 @@ runBools_sample[2] = 1
 runBools_compile = np.zeros((5,))
 runBools_compile[0] = 1
 
+runBools_cycle = np.zeros((5,))
+
+runBools_cycle[1] = 1
 ### TODO: check how keys are mapped.
 runBools_rotate_tempo = np.zeros((5,))
 runBools_rotate_tempo[0] = 1
@@ -33,10 +36,11 @@ runBools_rotate_tempo[3] = 1
 
 runBools_all = np.ones((5,))
 # runBools = runBools_sample
-runBools = runBools_all
+runBools = runBools_sample#runBools_all
 
 #downsel, rr, dw, edge, pulse, sounds
-plGenIdx = [0,1,2,3,4,5]
+#plGenIdx = [0,1,2,3,4,5]
+plGenIdx = [6]
 # plGenIdx = [1,2,3,4,5]
 # plGenIdx = [2]
 # plGenIdx = [3]
@@ -48,11 +52,13 @@ runCompileFcns = runBools[0]
 runDownselCycle = runBools[1]
 runPlSample = runBools[2]
 runTempoRecs = runBools[3]
-runCrateCompile = runBools[4]
+runCrateCompile = 0#runBools[4]
 
 
 now = datetime.datetime.now()
 dtString=now.strftime("%m/%d/%Y")
+
+retVal = 0
 
 logging.basicConfig(filename='globalScript.log',encoding='utf-8',level=logging.INFO) # debug will give me the spotipy debug too lol.
 logging.info("Global script run " + dtString)
@@ -94,17 +100,25 @@ if FLAG_RUN:
         except Exception as e:
             logging.error(e)
             logging.error("Compilation failed.")
-
+            retVal += 1
     # Move old elements of the downselect playlist into a monthly playlist.
     if runDownselCycle == True:
         try:
             createNewPl = (today.day == 1)
-            idsAdjust = si.cyclePlaylist(sp,"The Downselect",nDaysCycle = 7,removeTracks=True,newPl= createNewPl)
+            daysCycle = 7
+            idsAdjust = si.cyclePlaylist(sp,"The Downselect",nDaysCycle = daysCycle,removeTracks=True,newPl= createNewPl) ### TODO: return to True.
+            # print(idsAdjust)
             if idsAdjust:
+               fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
+               df_ret = si.addAlbumsToCrate(sp,idsAdjust,fid_crate)
+               si.saveTrackDF(df_ret,"crates_compiled.csv")
                si.addToPlaylist(sp,"downselect_downselect_listen",idsAdjust)
+               print("added!")
+
         except Exception as e:
             logging.error(e)
             logging.error("Downselect cycle out failed")
+            retVal += 2
 
 
     ###### sample big playlists
@@ -125,13 +139,14 @@ if FLAG_RUN:
                         "Combined DW for the Week of "+dwDate \
                         ]
 
-            playlistShort = ["down","rr","dw","edge","pulse","sounds"]
+            playlistShort = ["down","rr","dw","edge","pulse","sounds","crate"]
 
             model_folder = "pkl_vals"
             pkl_locs = [
                 "edge_compiled.pkl",\
                 "pulse_compiled.pkl", \
-                "sounds_compiled.pkl" \
+                "sounds_compiled.pkl", \
+                "crates_compiled.pkl"
             ]
             nPlaylists =1
             nSongsPerPlaylist = 30
@@ -170,6 +185,8 @@ if FLAG_RUN:
         except Exception as e:
             logging.error(e)
             logging.error("Playlist subsample failed.")
+            retVal += 4
+
 
         ######
     if runTempoRecs:
@@ -192,6 +209,7 @@ if FLAG_RUN:
             print("creation failed!")
             logging.error("Tempo rec playlist gen failed.")
             logging.error(e)
+            retVal += 8
 
     ###### compile crate playlists and sample that.
     if runCrateCompile:
@@ -269,3 +287,7 @@ if FLAG_RUN:
         except Exception as e:
             logging.error(e)
             logging.error("Cllustering subsample failed.")
+            retVal += 16
+
+print("Returns: " + str(retVal))
+logging.info("TOP | Return: "+ str(retVal))
