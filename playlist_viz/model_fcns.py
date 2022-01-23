@@ -32,7 +32,42 @@ def dimReduce(df_in,n_components):
  #   dimRedModel = Isomap(n_components=n_components,n_jobs =-1)
     return dimRedModel.fit_transform(np_clust_pool)
 
-# Check learning_rate,  
+
+def dimReduce_test(df_in,n_components):
+    import keras
+    from keras import layers,regularizers
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.model_selection import train_test_split
+    from keras.callbacks import TensorBoard
+
+    scaler = StandardScaler()
+    np_clust_pool = scaler.fit_transform(df_in)
+    ## Dimensionality reduction.
+
+    #define layers
+    encoding_dim = n_components
+    inSize = df_in.shape[1]
+    input_vec = keras.Input(shape=(inSize,))
+    encoded = layers.Dense(encoding_dim,activation='relu')(input_vec) # ,activity_regularizer = regularizers.l1(10e-5)
+    encoded_input = keras.Input(shape=(encoding_dim,))
+    decoded = layers.Dense(inSize,activation='sigmoid')(encoded)
+    #define models.
+    autoencoder = keras.Model(input_vec,decoded)
+    encoder = keras.Model(input_vec,encoded)
+    decoder_layer = autoencoder.layers[-1]
+    decoder=keras.Model(encoded_input, decoder_layer(encoded_input))
+    autoencoder.compile(optimizer='adam',loss='binary_crossentropy') ###NOTE: reinvestigate loss function.
+    x_train,x_test = train_test_split(np_clust_pool)
+    # tensorboard --logdir=/tmp/autoencoder
+    autoencoder.fit(x_train,x_train,
+                    epochs=50,batch_size=128,shuffle=True,
+                    validation_data=(x_test,x_test),
+                    callbacks=[TensorBoard(log_dir="/tmp/autoencoder")])
+    embedded_pool = encoder.predict(np_clust_pool)
+    print(embedded_pool)
+
+    return embedded_pool
+# Check learning_rate,
 
 
 def runClustering(dfIn,maxNumClusters = 1000,findClusterCount = True,showPlot = True):
@@ -47,7 +82,7 @@ def runClustering(dfIn,maxNumClusters = 1000,findClusterCount = True,showPlot = 
     else:
         rangeSearch = range(1,maxNumClusters)
         silScore = np.ones((maxNumClusters-1,)) * 500
-    
+
     #silScore = np.zeros((10,))
     #sc = OPTICS(min_samples=100,n_jobs=-1)
 
@@ -57,8 +92,8 @@ def runClustering(dfIn,maxNumClusters = 1000,findClusterCount = True,showPlot = 
         for ind in rangeSearch:
             sc = MiniBatchKMeans(n_clusters = ind+1)
             splitVals.append(sc.fit_predict(npIn))
-            silScore[idxSave] = davies_bouldin_score(npIn,splitVals[idxSave]) 
-            # silScore[ind-1] = silhouette_score(npIn,splitVals[ind-1]) 
+            silScore[idxSave] = davies_bouldin_score(npIn,splitVals[idxSave])
+            # silScore[ind-1] = silhouette_score(npIn,splitVals[ind-1])
             print("Cluster count "+ str(ind+1) + ": " + str(silScore[idxSave]))
             idxSave = idxSave + 1
         idxUse = np.argmin(silScore)
@@ -77,4 +112,3 @@ def runClustering(dfIn,maxNumClusters = 1000,findClusterCount = True,showPlot = 
     dfOut["Cluster"] = valsUse
 
     return dfOut, idxUse
-

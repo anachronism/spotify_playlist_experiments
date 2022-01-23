@@ -18,7 +18,7 @@ TODO:
 #import plotly.express as px
 
 from spotify_interactions import createPlaylist,initSpotipy
-from model_fcns import dimReduce,runClustering
+from model_fcns import dimReduce,dimReduce_test,runClustering
 import utils
 
 import numpy as np
@@ -70,7 +70,8 @@ def analyseSongCorpus(rangeClusterSearch=[3600,3650],showPlot=False,poolSize=30e
         df_clust_pool = df_pool[featuresPull]
         df_clust_pool = df_clust_pool.dropna(axis='rows')
         print(df_clust_pool.shape)
-        poolReduced = dimReduce(df_clust_pool,3)
+       poolReduced = dimReduce(df_clust_pool,3)
+        # poolReduced = dimReduce_test(df_clust_pool,3) ##########Note! this needs to be returned.
         fid_poolRed = fid_poolRed+"_3d"
 
         df_pool["x"] = poolReduced[:,0]

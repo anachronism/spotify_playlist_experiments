@@ -1,11 +1,11 @@
-import spotify_interactions as si 
+import spotify_interactions as si
 from datetime import datetime
 import pandas as pd
 
 def crateCompile(fid_in="pkl_vals/crates_compiled.pkl",searchIDs=["/* ","The Downselect"]):
 
-    fid_inputPkl = fid_in 
-    sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")# 
+    fid_inputPkl = fid_in
+    sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
 
     trackDict = []
     analysisDict = []
@@ -21,7 +21,7 @@ def crateCompile(fid_in="pkl_vals/crates_compiled.pkl",searchIDs=["/* ","The Dow
                 tmp1,tmp2 = si.getTracksFromPlaylist(sp,playID,True,True)
 
             trackDict = trackDict + tmp1
-            analysisDict = analysisDict + tmp2 
+            analysisDict = analysisDict + tmp2
 
     print("Num Track IDs:" + str(len(trackDict)))
 
@@ -34,12 +34,3 @@ def crateCompile(fid_in="pkl_vals/crates_compiled.pkl",searchIDs=["/* ","The Dow
     trackDF = trackDF.drop_duplicates(subset=["Song URI"])
     print("Number of unique tracks: " + str(len(trackDF.index)))
     trackDF.to_pickle(fid_inputPkl)
-
-    #indOut = si.removeSavedTracks(sp,trackIdsUnique)
-
-    #tracksOut = [trackIdsUnique[idx] for idx in indOut]
-    #print("Num tracks in playlist: "+str(len(tracksOut)))
-    #### TODO: understand why this is losing some of the tracks.
-    #si.createPlaylist(sp,playlistTitle,tracksOut)
-
-#crate_compile()

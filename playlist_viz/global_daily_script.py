@@ -243,7 +243,6 @@ if FLAG_RUN:
             df_centers = df_clustered_thresh.groupby(['Cluster']).mean()
             indsPlaylistsOut = utils.drawClusters(df_centers,nExport_crate)
 
-
             for ind in indsPlaylistsOut:
                 writeOut = df_clustered[df_clustered["Cluster"] == ind]
                 createPlaylist(sp,"CRATE Cluster "+str(ind),writeOut,True)
