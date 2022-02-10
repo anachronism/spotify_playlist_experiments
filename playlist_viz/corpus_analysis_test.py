@@ -7,7 +7,7 @@ import utils
 model_folder = "pkl_vals"
 fid_big = "/".join((model_folder,"crates_compiled.pkl"))
 
-# analyseSongCorpus(rangeClusterSearch=[1500,3550],poolSize=20e3,showPlot=False,fid_in=fid_big,out_append="crate_tmp_")
+analyseSongCorpus(rangeClusterSearch=[1500,1550],poolSize=10e3,showPlot=False,fid_in=fid_big,out_append="crate_tmp_")
 
 fid_clustering_thresh = "/".join((model_folder,"crate_tmp_clusters_thresh.pkl"))
 fid_clustering = "/".join((model_folder,"crate_tmp_clusters.pkl"))

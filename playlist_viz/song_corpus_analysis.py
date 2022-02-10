@@ -20,6 +20,7 @@ TODO:
 from spotify_interactions import createPlaylist,initSpotipy
 from model_fcns import dimReduce,dimReduce_test,runClustering
 import utils
+import logging
 
 import numpy as np
 import pandas as pd
@@ -43,8 +44,11 @@ def analyseSongCorpus(rangeClusterSearch=[3600,3650],showPlot=False,poolSize=30e
     rangePrint = 5
     nPlayExport = 5
     minPlSize = 7 # minimum playlist size.
+    ## The "production" set of features.
+    # featuresPull = ['Danceability','Energy','Speechiness','Acousticness'
+    #                     ,'Instrumentalness','Liveness','Valence','Loudness','Tempo','DJ Key'] #'Key',,'Loudness','Tempo' ### TODO: scale
     featuresPull = ['Danceability','Energy','Speechiness','Acousticness'
-                        ,'Instrumentalness','Liveness','Valence','Loudness','Tempo','DJ Key'] #'Key',,'Loudness','Tempo' ### TODO: scale loudness, tempo to uniform.
+                        ,'Instrumentalness','Liveness','Valence','Loudness','Tempo','DJ Key','TimeSig','Loudness'] #'Key',,'Loudness','Tempo' ### TODO: scale loudness, tempo to uniform.
         # Running index, probably inefficient.
     nTrip = 0
     songLenMin = 30 # min length of song to be considered, in seconds
@@ -80,6 +84,7 @@ def analyseSongCorpus(rangeClusterSearch=[3600,3650],showPlot=False,poolSize=30e
 
         np.save(fid_poolRed,poolReduced)
         df_pool.to_pickle(fid_totalPool)
+        logging.info("CORPUS: dimensionality reduced.")
     else:
         fid_poolRed = fid_poolRed+"_3d"
         poolReduced = np.load(fid_poolRed+".npy")
@@ -94,6 +99,7 @@ def analyseSongCorpus(rangeClusterSearch=[3600,3650],showPlot=False,poolSize=30e
             nPlaylists = np.load(fid_clusterNum+".npy")
             df_clustered,nPlaylists = runClustering(df_pool,nPlaylists,False,showPlot)
 
+        logging.info("CORPUS: clustered.")
         df_clustered.to_pickle(fid_clustering)
         np.save(fid_clusterNum,nPlaylists)
     else:

@@ -25,6 +25,7 @@ from math import floor
 def initSpotipy(scope):
     CLIENT_ID = secretsLocal.clientID()
     CLIENT_SECRET = secretsLocal.clientSecret()
+    # REDIRECT_URI = "http://localhost:8080" # NOTE:Must add this to your spotify app suitable links.
     REDIRECT_URI = "http://localhost:8080" # NOTE:Must add this to your spotify app suitable links.
 
     return spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope,client_id=CLIENT_ID,client_secret=CLIENT_SECRET,redirect_uri=REDIRECT_URI))
@@ -304,6 +305,8 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
         liveMean =  df["Liveness"].mean(axis=0)
         valenceMean =  df["Valence"].mean(axis=0)
         instrMean =  df["Instrumentalness"].mean(axis=0)
+        keyMean = df["DJ Key"].mean(axis=0)
+        keyStd = df["DJ Key"].std(axis=0)
 
         str0 = "autogen playlist: "+ dtString +(" || Mean Tempo: %0.2f" %tempoMean)
         str1 =  (" || Mean Danceability: %0.2f" %danceMean)
@@ -311,12 +314,13 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
         str3=  (" || Mean Accoustic: %0.2f" %accousticMean)
         str4=   (" || Mean Liveness: %0.2f" %liveMean)
         str5 =  (" || Mean Valence: %0.2f" %valenceMean)
-        str6 = (" || Mean Instrumentalness: %0.2f"%instrMean)
+        str6 = (" || DJ Key (Mean, Std): %2.2f,%0.2f"%(keyMean,keyStd))
+        # str6 = (" || Mean Instrumentalness: %0.2f"%instrMean)
         strDescription = genresPrint + str0+str1+str2+str3+str4+str5 +str6
 
         ### TODO: map this more reasonably, do a gradient.
         genRand = False
-        coverArt =  pl_im.gen2ColorCircleCover(energyMean,valenceMean,2048,genRand)
+        coverArt =  pl_im.gen2ColorCircleCover(valenceMean,energyMean,2048,genRand)
 
     else: #Assuming for the moment else is a list of IDs
         strDescription = "Created "+ dtString
@@ -553,7 +557,6 @@ def clusterSinglePlaylist(sp,model_folder,fid_pulse,plSearch,nClustersDraw,analy
             removeTracksFromPlaylist(sp,plID_remove,writeOut["Track ID"])
     if pklIn:
         #### STILL HAVE TO CONFIRM WORKING AS EXPECTED.
-
         # print(trackInd_remove)
         # print(df_raw["Track ID"])
         tst = df_raw["Track ID"].isin(trackInd_remove)
@@ -562,6 +565,7 @@ def clusterSinglePlaylist(sp,model_folder,fid_pulse,plSearch,nClustersDraw,analy
         df_raw_short.to_pickle(fid_pulse)
         df_clustered_tmp.to_pickle(fid_clustering)
         print(df_raw_short.shape[0])
+        ### TODO: Here add the saving out to csv.
 
 
 #samplePlaylists: from a playlist, generate nPlaylists randomly drawn playlists from it, and remove the songs
@@ -724,8 +728,8 @@ def getNewTracks_df(sp, fidIn,plSearch,datesSearch):
 
     for (idx,elt) in enumerate(tr_times_datetime):
         if datesSearch[1] >= elt.date() and datesSearch[0] < elt.date():
-            print(idx)
-            print(len(tr_URI))
+            # print(idx)
+            # print(len(tr_URI))
             idxAdjust += [idx]
             urisAdjust += [tr_URI[idx]]
 #            print("Adding.")
@@ -1011,10 +1015,10 @@ def tracksToDF(tracks,af,artistList = False):
 #                print(elt["artists"])
                 tmp = tmp + [elt["artists"]]
             else:
-                tmp = tmp + [{"name":"N/A","uri":"spotify:artist:5getpnTxZMpYRlfyXOjQQw"}]
+                tmp = tmp + [[{"name":"N/A","uri":"spotify:artist:5getpnTxZMpYRlfyXOjQQw"}]]
 
         else:
-            tmp = tmp + [{"name":"N/A","uri":"spotify:artist:5getpnTxZMpYRlfyXOjQQw"}]
+            tmp = tmp + [[{"name":"N/A","uri":"spotify:artist:5getpnTxZMpYRlfyXOjQQw"}]]
 
     # print(tmp[0])
     # logging.info("trackstodf|past artist gathering")
@@ -1025,6 +1029,9 @@ def tracksToDF(tracks,af,artistList = False):
     album = []
     genresObjs = 0
     for idx,elt in enumerate(artistObjs):
+        if not type(elt)==list:
+            print(elt)
+
         artistName.append( [x["name"] for x in elt])
         artistURI.append([x["uri"] for x in elt])
 
@@ -1084,7 +1091,7 @@ def saveTracksFromPlaylists(sp,plName,filepath):
 
 def saveTrackDF(df,filepath):
     dfTmp = df
-    if isinstance(df["Artist"][0],list):
+    if isinstance(df["Artist"].iloc[0],list):
         # Note: Here there may be a smarter delimiter between artists and artist URIS,
         dfTmp["Artist"] = dfTmp["Artist"].apply(lambda x:",".join(x))
         dfTmp["Artist URI"] = dfTmp["Artist URI"].apply(lambda x:",".join(x))

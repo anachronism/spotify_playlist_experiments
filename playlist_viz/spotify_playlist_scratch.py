@@ -13,14 +13,91 @@ today=datetime.date.today()
 model_folder = "pkl_vals"
 playlist_folder = "playlist_csvs"
 fid_sounds = "/".join((model_folder,"sounds_compiled.pkl"))
+fid_manual = "/".join((model_folder,"sounds_manual_compiled.pkl"))
 fid_edge = "/".join((model_folder,"edge_compiled.pkl"))
 fid_pulse = "/".join((model_folder,"pulse_compiled.pkl"))
 fid_dw = "/".join((model_folder,"dw_compiled.pkl"))
 fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
-mode = "dedupCrates"#"initEdgePulse"
-if mode == "importCSV":
+print(sp)
+mode = "modifyManualCrates"#"initEdgePulse"
+
+if mode == "modifyManualCrates":
+    trackDF = pd.read_pickle(fid_manual)
+    idsAdjust = list(trackDF["Track ID"])
+    now = datetime.datetime.now()
+    dtString = now.strftime("%m/%d/%Y")
+    trackDF["Date Added"] = dtString
+    trackDF.to_pickle(fid_manual)
+    si.saveTrackDF(trackDF,'manual_compiled.csv')
+elif mode == "initManualCrates":
+    plCompile_manual = "CRATE ADD ALT"
+    si.saveTracksFromPlaylists(sp,plCompile_manual,fid_manual)
+    print("Sounds compiled!")
+
+elif mode == "testSample":
+    #downsel, rr, dw, edge, pulse, sounds, crates
+
+    calcClusters = True
+    plGenIdx = [6]
+
+    today=datetime.date.today()
+    recentGenDW = today-datetime.timedelta(days=today.weekday())
+    if(today.weekday() < 4):
+        recentGenRR = today-datetime.timedelta(days=today.weekday())-datetime.timedelta(days=3)
+    else:
+        recentGenRR = today-datetime.timedelta(days=today.weekday()) + datetime.timedelta(days=4)
+    dwDate = recentGenDW.strftime("%m/%d/%Y")
+    rrDate = recentGenRR.strftime("%m/%d/%Y")
+    # playlists=["Combined RR for the Week of " + rrDate]
+    playlists=[\
+                "downselect_downselect_listen", \
+                "Combined RR for the Week of " + rrDate,\
+                "Combined DW for the Week of "+dwDate \
+                ]
+
+    playlistShort = ["down","rr","dw","edge","pulse","sounds","crate"]
+
+    model_folder = "pkl_vals"
+    pkl_locs = [
+        "edge_compiled.pkl",\
+        "pulse_compiled.pkl", \
+        "sounds_compiled.pkl", \
+        "crates_compiled.pkl"
+    ]
+    nPlaylists =1
+    nPlaylists_cluster = 2
+    nSongsPerPlaylist = 30
+    #
+#    print(playlists)
+    for idx in plGenIdx:
+        print(idx)
+        if idx < 3:
+            elt = playlists[idx]
+            plOut = playlistShort[idx]
+#                calcClusters= False
+            model_folder = "pkl_vals"
+            print(elt)
+            fid_pulse = "/".join((model_folder,playlistShort[idx]+"_compiled.pkl"))
+            if idx < 1:
+                for idx2 in range(nPlaylists_cluster):
+                    si.clusterSinglePlaylist(sp,model_folder,fid_pulse,elt,nPlaylists,analyzeCorpus=calcClusters,out_append=plOut)
+            else:
+                si.samplePlaylists(sp,elt,nPlaylists,nSongsPerPlaylist)
+        else:
+            fid_in ="/".join((model_folder,pkl_locs[idx-3]))
+            plOut = playlistShort[idx]
+#                calcClusters= False
+            for idx3 in range(nPlaylists_cluster):
+                if idx3 == 0:
+                    calcClusters_sub = calcClusters
+                else:
+                    calcClusters_sub = False
+                si.clusterSinglePlaylist(sp,model_folder,fid_in,False,nPlaylists,analyzeCorpus=calcClusters_sub,out_append=plOut, pklIn=True)
+
+        #df sampled ones.
+elif mode == "importCSV":
     csvFolder = "playlist_csvs/playlists_feb2021_archive/"
     csvImport = csvFolder+"the_downselect_december_2020.csv"
     si.csv2playlist(sp,csvImport, "The Downselect, December 2020")
@@ -38,13 +115,15 @@ elif mode == "dedupCrates":
     si.dedupDF(fid_pulse)
     si.pickle2csv(fid_pulse,"playlist_csvs/pulse_compiled.csv")
     si.dedupDF(fid_crate)
-    si.pickle2csv(fid_pulse,"playlist_csvs/crates_compiled.csv")
-    
+    si.pickle2csv(fid_crate,"playlist_csvs/crates_compiled.csv")
+
 elif mode == "getAlbumsFromIds":
     playID = si.getPlaylistID(sp,"DJ Pull 01/22/2022 The Downselect, 2021")
     idsAdjust = si.getTracksFromPlaylist(sp,playID,ret_track_info = False,ret_af = False,ret_pl_info=False)
     df_ret = si.addAlbumsToCrate(sp,idsAdjust,fid_crate)
     si.saveTrackDF(df_ret,"crates_compiled.csv")
+
+
 
 elif mode == "modifyCrate":
     trackDF = pd.read_pickle(fid_crate)
