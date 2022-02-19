@@ -25,8 +25,10 @@ runBools_sample[2] = 1
 runBools_compile = np.zeros((5,))
 runBools_compile[0] = 1
 
-runBools_cycle = np.zeros((5,))
+runBools_tempo_rec = np.zeros((5,))
+runBools_tempo_rec[3] = 1
 
+runBools_cycle = np.zeros((5,))
 runBools_cycle[1] = 1
 
 ### TODO: check how keys are mapped.
@@ -39,12 +41,13 @@ runBools_all = np.ones((5,))
 runBools_none = np.zeros((5,))
 # runBools = runBools_sample
 runBools = runBools_all
+# runBools = runBools_tempo_rec
 # runBools = runBools_compile
 
 #downsel, rr, dw, edge, pulse, sounds
 plGenIdx = [0,1,2,3,4,5,6,7]
 #plGenIdx = [0,3,4,5,6,7]
-
+# plGenIdx = [3,4,5,6,7]
 runCompileFcns = runBools[0]
 runDownselCycle = runBools[1]
 runPlSample = runBools[2]
@@ -87,20 +90,27 @@ if FLAG_RUN:
                 fid_pulse = "/".join((model_folder,"pulse_compiled.pkl"))
                 fid_manual = "/".join((model_folder,"sounds_manual_compiled.pkl"))
                 fid_sounds = "/".join((model_folder,"sounds_compiled.pkl"))
-
+                fid_list = [fid_edge,fid_pulse,fid_manual,fid_sounds]
+                search_string_list = ["The Edge of", "The Pulse of", "The Sound of", "CRATE ADD"]
+                # crate one is just to update csv.
                 fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
 
                 dateEarly=today-datetime.timedelta(days=7)
                 dateLate = today
                 dateIn = [dateEarly,dateLate]
-                nTracks = si.getNewTracks_df(sp, fid_edge,"The Edge of",dateIn)
-                logging.info("Compiled Edge Of playlists.")
-                nTracks = si.getNewTracks_df(sp, fid_pulse,"The Pulse of",dateIn)
-                logging.info("Compiled Pulse Of playlists.")
-                nTracks = si.getNewTracks_df(sp, fid_sounds,"The Sound of",dateIn)
-                logging.info("Compiled Sound Of playlists.")
-                nTracks = si.getNewTracks_df(sp, fid_manual,"CRATE ADD",dateIn)
-                logging.info("Compiled Crate playlist.")
+
+
+                si.getNewTracks_df(sp,fid_list,search_string_list,dateIn)
+
+                # nTracks = si.getNewTracks_df(sp, fid_edge,"The Edge of",dateIn)
+                # logging.info("Compiled Edge Of playlists.")
+                # nTracks = si.getNewTracks_df(sp, fid_pulse,"The Pulse of",dateIn)
+                # logging.info("Compiled Pulse Of playlists.")
+                # nTracks = si.getNewTracks_df(sp, fid_sounds,"The Sound of",dateIn)
+                # logging.info("Compiled Sound Of playlists.")
+                # ##### NEED TO FIX BUG IN getnewtracks_df
+                # nTracks = si.getNewTracks_df(sp, fid_manual,"CRATE ADD",dateIn)
+                # logging.info("Compiled Crate playlist.")
 
 
 
@@ -112,7 +122,6 @@ if FLAG_RUN:
                 si.pickle2csv(fid_edge,"playlist_csvs/edge_compiled.csv")
                 si.dedupDF(fid_pulse)
                 si.pickle2csv(fid_pulse,"playlist_csvs/pulse_compiled.csv")
-                si.dedupDF(fid_crate)
                 si.pickle2csv(fid_crate,"playlist_csvs/crates_compiled.csv")
                 si.dedupDF(fid_manual)
                 si.pickle2csv(fid_manual,"playlist_csvs/manual_compiled.csv")

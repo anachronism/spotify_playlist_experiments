@@ -97,22 +97,41 @@ def getPlaylistIDs(sp,strName,retName=False):
     currUser = sp.me()
     userID = currUser["id"]
 
-    idsRet = []
-    namesRet = []
+    if type(strName) == list:
+        idsRet = [[]] * len(strName)
+        namesRet = [[]] * len(strName)
+    else:
+        idsRet = []
+        namesRet = []
     offset = 0
     currVal = sp.current_user_playlists(limit=50, offset=offset)
     while not (currVal["next"] is None):
         currVal = sp.current_user_playlists(limit=50, offset=offset)
         plList = currVal["items"]
 
-        tmp = [item for item in plList if (strName.lower() in item["name"].lower()) ]
-        for elt in tmp:
-            idsRet.append(elt["id"])
-            if retName:
-                namesRet.append(elt["name"])
-            # print(elt["name"])
-
+        if type(strName) ==  list:
+            for idxSub,elt in enumerate(strName):
+                idsTmp = []
+                namesTmp = []
+                tmp = [item for item in plList if (elt.lower() in item["name"].lower()) ]
+                for elt2 in tmp:
+                    idsTmp.append(elt2["id"])
+                    if retName:
+                        namesTmp.append(elt2["name"])
+                # In this case, trying to return a list of lists.
+                if idsTmp:
+                    idsRet[idxSub] += idsTmp
+                    if retName:
+                        namesRet[idxSub] +=namesTmp
+        else:
+            tmp = [item for item in plList if (strName.lower() in item["name"].lower()) ]
+            for elt in tmp:
+                idsRet.append(elt["id"])
+                if retName:
+                    namesRet.append(elt["name"])
+                # print(elt["name"])
         offset = offset +currVal["limit"]
+
     if retName:
         return idsRet,namesRet
     else:
@@ -173,6 +192,7 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True, ret_pl_in
         plHandle = sp.playlist_items(plID,offset = offset)#,market=currMarket)
         tracksNew = [item["track"] for item in plHandle["items"]]
         tracksNew = list(filter(None,tracksNew))
+        tracksNew = [item for item in tracksNew if item["id"]]
 
         trackDates = [item["added_at"] for item in plHandle["items"]]
         tracksSave = tracksSave + tracksNew
@@ -182,9 +202,19 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True, ret_pl_in
         trackIds = trackIds + newIDs
 
         if ret_af:
-            audioFeatures = audioFeatures + sp.audio_features(newIDs)
-        nextUp = plHandle["next"]
+            cnt = 0
+            canContinue = False
+            while cnt < 1000  and not canContinue:
+                tmpFeatures = sp.audio_features(newIDs)
+                if len(tmpFeatures) == len(newIDs):
+                    canContinue = True
+                else:
+                    print(len(tmpFeatures))
 
+#            print("%d,%d"%(len(tmpFeatures),len(newIDs)))
+            audioFeatures = audioFeatures + tmpFeatures
+
+        nextUp = plHandle["next"]
     if ret_track_info:
         retVals = [tracksSave]
 #        trackOut = tracksSave
@@ -517,7 +547,7 @@ def clusterSinglePlaylist(sp,model_folder,fid_pulse,plSearch,nClustersDraw,analy
         if nTracksUse < 8000:
             rangeSearch = [int(nTracksUse/30), int(nTracksUse/30) + 100]
         else:
-            rangeSearch = [int(nTracksUse/10), int(nTracksUse/10) + 100]
+            rangeSearch = [int(nTracksUse/15), int(nTracksUse/15) + 100]
 
         analyseSongCorpus(rangeClusterSearch=rangeSearch,poolSize=nTracksUse,showPlot=False,fid_in=fid_pulse,out_append=out_append)
 
@@ -692,73 +722,166 @@ def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True):
 '''
 '''
 def getNewTracks_df(sp, fidIn,plSearch,datesSearch):
-    df_in = pd.read_pickle(fidIn)
-    pl_ids = getPlaylistIDs(sp,plSearch)
+    now = datetime.now()
+    dtString = now.strftime("%m/%d/%Y")
 
-    tr_times = []
-    tr_URI = []
-
-    trackList = []
-    afList = []
-    tmpAf = []
-    for playID in pl_ids:
-        print("Parsing "+ playID)
-        (tmpTracks,tmpAf,tmpDates)= getTracksFromPlaylist(sp,playID,ret_track_info = True,ret_af = True,ret_pl_info=True)
-        tmpDuple = tuple(zip(tmpTracks,tmpDates))
-        tmpURI = [track["uri"] for (track,date) in tmpDuple if track]
-        tmpDates = [date for (track,date) in tmpDuple if track]
-        trackList += tmpTracks
-        afList += tmpAf
-
-        if tmpURI:
-            tr_URI = tr_URI + tmpURI
-            tr_times = tr_times + tmpDates
-            # print(len(tr_times))
-            # print(len(tr_URI))
-
-    ### TODO: look into getting unique Ids from names.
-    timeFormatStr = "%Y-%m-%dT%H:%M:%SZ"
-    tr_times_datetime = [datetime.strptime(elt,timeFormatStr) for elt in tr_times]
-    logging.info("getNewTracks_df||Finished parsing playlists.")
-    idsAdjust = []
-    urisAdjust = []
-    # def not pythonic but whatever at the moment.
-#df.iloc[[0, 1]]
-    idxAdjust = []
-
-    for (idx,elt) in enumerate(tr_times_datetime):
-        if datesSearch[1] >= elt.date() and datesSearch[0] < elt.date():
+    if type(plSearch) == list:
+        # Refactored this so that one scan through the playlists of a user will be all that's needed
+        # to check all of the playlist categories.
+        pl_ids = getPlaylistIDs(sp,plSearch)
+        songs_add = []
+#        print(pl_ids)
+#        logging.info(enumerate(pl_ids))
+        print(len(pl_ids))
+        for idx,pl_id_type in enumerate(pl_ids):
             # print(idx)
-            # print(len(tr_URI))
-            idxAdjust += [idx]
-            urisAdjust += [tr_URI[idx]]
-#            print("Adding.")
-        else:
-            pass
-#            print(elt.date())
+            # print(pl_id_type)
+            df_in = pd.read_pickle(fidIn[idx])
+            # print(plSearch[idx])
+            tr_times = []
+            tr_URI = []
 
-    if len(idxAdjust) == 0:
-        logging.info("No tracks to add!")
-        return 0
+            trackList = []
+            afList = []
+            tmpAf = []
+            for playID in pl_id_type:
+                # print("Parsing "+ playID)
+                # print(playID)
+                # print(len(playID))
+                (tmpTracks,tmpAf,tmpDates)= getTracksFromPlaylist(sp,playID,ret_track_info = True,ret_af = True,ret_pl_info=True)
+                tmpDuple = tuple(zip(tmpTracks,tmpDates))
+        #        print("Length:"+str(len(tmpDuple)))
+                tmpURI = [track["uri"] for (track,date) in tmpDuple if track]
+                tmpDates = [date for (track,date) in tmpDuple if track]
+                tmpTracks2 = [track for track in tmpTracks if track]
+                trackList += tmpTracks2
+                afList += tmpAf
 
-    trackDictUse = [trackList[elt] for elt in idxAdjust]
-    analysisDictUse = [afList[elt] for elt in idxAdjust]
+                if tmpURI:
+                    tr_URI = tr_URI + tmpURI
+                    tr_times = tr_times + tmpDates
+                    # print(len(tr_times))
+                    # print(len(tr_URI))
 
-    trackDF = tracksToDF(trackDictUse,analysisDictUse,False)
-    # trackIdsUnique = list(dict.fromkeys(idsAdjust))
-    print("DF'd")
-    trackIdsUnique = list(dict.fromkeys(urisAdjust))
-    print("Unique Tracks.")
-    indOut = removeSavedTracks(sp,trackIdsUnique)
-    idsOut = [trackIdsUnique[idx] for idx in indOut]
-    print("IdsOut made.")
-    trackDF = trackDF.iloc[indOut]#trackDF.iloc[idsOut]
+            ### TODO: look into getting unique Ids from names.
+            timeFormatStr = "%Y-%m-%dT%H:%M:%SZ"
+            tr_times_datetime = [datetime.strptime(elt,timeFormatStr) for elt in tr_times]
+            logging.info("getNewTracks_df||Finished parsing playlists.")
 
-    trackDF_out = df_in.append(trackDF)
-    trackDF_out = trackDF_out.drop_duplicates(subset=["Song URI"])
-    trackDF_out.to_pickle(fidIn)
+            idsAdjust = []
+            urisAdjust = []
+            # def not pythonic but whatever at the moment.
+        #df.iloc[[0, 1]]
+            idxAdjust = []
 
-    return trackDF_out.shape[0]
+            for (idx2,elt) in enumerate(tr_times_datetime):
+                if datesSearch[1] >= elt.date() and datesSearch[0] < elt.date():
+                    # print(len(tr_URI))
+                    idxAdjust += [idx2]
+                    urisAdjust += [tr_URI[idx2]]
+        #            print("Adding.")
+                else:
+                    pass
+        #
+            if len(idxAdjust) == 0:
+                logging.info("No tracks to add!")
+                return 0
+            # print(max(idxAdjust))
+            # print(len(afList))
+            # print(len(trackList))
+            trackDictUse = [trackList[elt] for elt in idxAdjust]
+            analysisDictUse = [afList[elt] for elt in idxAdjust]
+
+            trackDF = tracksToDF(trackDictUse,analysisDictUse,False)
+
+            trackDF["Date Added"] = dtString
+
+            # trackIdsUnique = list(dict.fromkeys(idsAdjust))
+            print("DF'd")
+            trackIdsUnique = list(dict.fromkeys(urisAdjust))
+            print("Unique Tracks.")
+            indOut = removeSavedTracks(sp,trackIdsUnique)
+            idsOut = [trackIdsUnique[idx] for idx in indOut]
+            print("IdsOut made.")
+            trackDF = trackDF.iloc[indOut]#trackDF.iloc[idsOut]
+
+            trackDF_out = df_in.append(trackDF)
+            trackDF_out = trackDF_out.drop_duplicates(subset=["Song URI"])
+            trackDF_out.to_pickle(fidIn[idx])
+            songs_add += [trackDF_out.shape[0]]
+
+#### COME BACK.
+    else:
+        df_in = pd.read_pickle(fidIn)
+        pl_ids = getPlaylistIDs(sp,plSearch)
+
+        tr_times = []
+        tr_URI = []
+
+        trackList = []
+        afList = []
+        tmpAf = []
+
+        for playID in pl_ids:
+            print("Parsing "+ playID)
+            (tmpTracks,tmpAf,tmpDates)= getTracksFromPlaylist(sp,playID,ret_track_info = True,ret_af = True,ret_pl_info=True)
+            tmpDuple = tuple(zip(tmpTracks,tmpDates))
+            tmpURI = [track["uri"] for (track,date) in tmpDuple if track]
+            tmpDates = [date for (track,date) in tmpDuple if track]
+            trackList += tmpTracks
+            afList += tmpAf
+
+            if tmpURI:
+                tr_URI = tr_URI + tmpURI
+                tr_times = tr_times + tmpDates
+                # print(len(tr_times))
+                # print(len(tr_URI))
+
+        ### TODO: look into getting unique Ids from names.
+        timeFormatStr = "%Y-%m-%dT%H:%M:%SZ"
+        tr_times_datetime = [datetime.strptime(elt,timeFormatStr) for elt in tr_times]
+        logging.info("getNewTracks_df||Finished parsing playlists.")
+        idsAdjust = []
+        urisAdjust = []
+        # def not pythonic but whatever at the moment.
+    #df.iloc[[0, 1]]
+        idxAdjust = []
+
+        for (idx,elt) in enumerate(tr_times_datetime):
+            if datesSearch[1] >= elt.date() and datesSearch[0] < elt.date():
+                # print(idx)
+                # print(len(tr_URI))
+                idxAdjust += [idx]
+                urisAdjust += [tr_URI[idx]]
+    #            print("Adding.")
+            else:
+                pass
+    #            print(elt.date())
+
+        if len(idxAdjust) == 0:
+            logging.info("No tracks to add!")
+            return 0
+
+        trackDictUse = [trackList[elt] for elt in idxAdjust]
+        analysisDictUse = [afList[elt] for elt in idxAdjust]
+
+        trackDF = tracksToDF(trackDictUse,analysisDictUse,False)
+
+        trackDF["Date Added"] = dtString
+        # trackIdsUnique = list(dict.fromkeys(idsAdjust))
+        print("DF'd")
+        trackIdsUnique = list(dict.fromkeys(urisAdjust))
+        print("Unique Tracks.")
+        indOut = removeSavedTracks(sp,trackIdsUnique)
+        idsOut = [trackIdsUnique[idx] for idx in indOut]
+        print("IdsOut made.")
+        trackDF = trackDF.iloc[indOut]#trackDF.iloc[idsOut]
+
+        trackDF_out = df_in.append(trackDF)
+        trackDF_out = trackDF_out.drop_duplicates(subset=["Song URI"])
+        trackDF_out.to_pickle(fidIn)
+
+        return trackDF_out.shape[0]
 '''
 '''
 

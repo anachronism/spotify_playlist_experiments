@@ -25,10 +25,17 @@ mode = "modifyManualCrates"#"initEdgePulse"
 
 if mode == "modifyManualCrates":
     trackDF = pd.read_pickle(fid_manual)
+    trackDict,analysisDict = si.compilePlaylists_dicts(sp,"CRATE ADD")
+#    print(trackDict[0].keys())
+    trackDF2 = si.tracksToDF(trackDict,analysisDict,False)
+    trackDF.append(trackDF2)
     idsAdjust = list(trackDF["Track ID"])
     now = datetime.datetime.now()
     dtString = now.strftime("%m/%d/%Y")
     trackDF["Date Added"] = dtString
+    si.dedupDF(fid_manual)
+    si.pickle2csv(fid_manual,"playlist_csvs/manual_compiled.csv")
+
     trackDF.to_pickle(fid_manual)
     si.saveTrackDF(trackDF,'manual_compiled.csv')
 elif mode == "initManualCrates":
