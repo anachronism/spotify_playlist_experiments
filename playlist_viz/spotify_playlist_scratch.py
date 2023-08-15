@@ -18,12 +18,30 @@ fid_edge = "/".join((model_folder,"edge_compiled.pkl"))
 fid_pulse = "/".join((model_folder,"pulse_compiled.pkl"))
 fid_dw = "/".join((model_folder,"dw_compiled.pkl"))
 fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
+fid_down_archive = "/".join((model_folder,"down_arch_compiled.pkl"))
+
+
 
 sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read")#
 print(sp)
-mode = "modifyManualCrates"#"initEdgePulse"
-
-if mode == "modifyManualCrates":
+mode = "testDownArchCycle"#"modifyEdge"#"initEdgePulse"
+if mode == "testDownArchCycle":
+    daysCycle = 180
+    idsAdjust,df_base = si.cyclePlaylist(sp,"downselect_downselect_listen",nDaysCycle = daysCycle,removeTracks=True,appendDate=False,newPl= False,df_str=fid_down_archive) ### TODO: return to True
+    si.saveTrackDF(df_base,"tmp.csv")
+if mode == "initDownArch":
+    plCompile_manual = "ARCHIVE: downselect_downselect_listen"
+    si.saveTracksFromPlaylists(sp,plCompile_manual,fid_down_archive)
+    print("DownArch compiled!")
+elif mode == "modifyDownArch":
+    trackDF = pd.read_pickle(fid_down_archive)
+    si.pickle2csv(fid_down_archive,"playlist_csvs/down_arch_compiled.csv")
+    idsAdjust = list(trackDF["Track ID"])
+    now = datetime.datetime.now()
+    dtString = now.strftime("%m/%d/%Y")
+    trackDF["Date Added"] = dtString
+    si.dedupDF(fid_down_archive)
+elif mode == "modifyManualCrates":
     trackDF = pd.read_pickle(fid_manual)
     trackDict,analysisDict = si.compilePlaylists_dicts(sp,"CRATE ADD")
 #    print(trackDict[0].keys())
@@ -132,14 +150,16 @@ elif mode == "getAlbumsFromIds":
 
 
 
-elif mode == "modifyCrate":
-    trackDF = pd.read_pickle(fid_crate)
-    idsAdjust = list(trackDF["Track ID"])
-    now = datetime.datetime.now()
-    dtString = now.strftime("%m/%d/%Y")
-    trackDF["Date Added"] = dtString
-    trackDF.to_pickle(fid_crate)
-    si.saveTrackDF(trackDF,'crates_compiled.csv')
+elif mode == "modifyEdge":
+    trackDF = pd.read_pickle(fid_edge)
+    # idsAdjust = list(trackDF["Track ID"])
+    # now = datetime.datetime.now()
+    # dtString = now.strftime("%m/%d/%Y")
+    # trackDF["Date Added"] = dtString
+    print(trackDF["Date Added"])
+    #trackDF = trackDF[trackDF["DateAdded"]]
+    # trackDF.to_pickle(fid_edge)
+    # si.saveTrackDF(trackDF,'crates_compiled.csv')
 
 elif mode == "modifySounds":
     trackDF = pd.read_pickle(fid_sounds)

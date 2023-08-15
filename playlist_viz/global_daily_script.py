@@ -39,21 +39,37 @@ runBools_rotate_tempo[3] = 1
 
 runBools_all = np.ones((5,))
 runBools_none = np.zeros((5,))
-# runBools = runBools_sample
+#runBools = runBools_sample
+runPlArchive = (today.day == 2) #
+
 runBools = runBools_all
+#runBools =runBools_none
+#runPlArchive = True#
+
+# runBools = runBools_none
+# runPlArchive = True
+
 # runBools = runBools_tempo_rec
 # runBools = runBools_compile
+# runBools = runBools_tempo_rec
 
 #downsel, rr, dw, edge, pulse, sounds
-plGenIdx = [0,1,2,3,4,5,6,7]
+#plGenIdx = [5,6,7]
+#plGenIdx = [0,1,2,3,4]
+#plGenIdx = [0,1,2,3,4,5,6,7,8]
+plGenIdx = [0,1,2,4,5,6,7,8]
+#plGenIdx = [0,2,3,4,5,6,7,8]
+#plGenIdx = [8]
+#plGenIdx = [0,1,3,4,5,6,7]
+# plGenIdx = [2]
 #plGenIdx = [0,3,4,5,6,7]
-# plGenIdx = [3,4,5,6,7]
+#plGenIdx = [3,4,5,6,7]
+# plGenIdx=[7]
 runCompileFcns = runBools[0]
 runDownselCycle = runBools[1]
 runPlSample = runBools[2]
 runTempoRecs = runBools[3]
 runCrateCompile = False#runBools[4]
-runPlArchive = (today.day == 2)
 
 now = datetime.datetime.now()
 dtString=now.strftime("%m/%d/%Y")
@@ -65,32 +81,45 @@ logging.info("Global script run " + dtString)
 
 if FLAG_RUN:
     sp = si.initSpotipy("playlist-read-private playlist-modify-private user-library-read playlist-modify-public ugc-image-upload")#
+    print("SP: ")
+    print(dir(sp))
+    print(sp.current_user())
+#    print(sp
 
     if runCompileFcns:
         try:
             now = datetime.datetime.now()
             dtString=now.strftime("%m/%d/%Y")
-
             if today.weekday() == 0:
                 # Monday, create discover weekly.
                 playlistTitle = "Combined DW for the Week of " + dtString
                 playlistSearch = "Discover Weekly"
                 playlistRemove = "Discovery Avoid"
                 si.compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle)
+                fid_down_archive = "/".join((model_folder,"down_arch_compiled.pkl"))
+
+                # Cycle downselect_downselect_listen into archive.
+                ### TODO: MAKE THIS ARCHIVE INTO A PKL SO I DON"T HAVE TO WORRY ABOUT TRACK COUNT.
+                daysCycle = 180
+                idsAdjust = si.cyclePlaylist(sp,"downselect_downselect_listen",nDaysCycle = daysCycle,removeTracks=True,appendDate=False,newPl= False,df_str=fid_down_archive) ### TODO: return to True
+
 
             elif today.weekday() == 4: #
                 #Friday, compile release radar playlists.
                 playlistTitle = "Combined RR for the Week of " + dtString
                 playlistSearch = "Release Radar"
                 playlistRemove = "Discovery Avoid"
+                logging.info("PRE_RR_compile.")
                 si.compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle)
                 logging.info("Compiled RR.")
+                print("HERE")
 
                 fid_edge = "/".join((model_folder,"edge_compiled.pkl"))
                 fid_pulse = "/".join((model_folder,"pulse_compiled.pkl"))
                 fid_manual = "/".join((model_folder,"sounds_manual_compiled.pkl"))
                 fid_sounds = "/".join((model_folder,"sounds_compiled.pkl"))
-                fid_list = [fid_edge,fid_pulse,fid_manual,fid_sounds]
+                fid_down_archive = "/".join((model_folder,"down_arch_compiled.pkl"))
+                fid_list = [fid_edge,fid_pulse,fid_sounds,fid_manual]
                 search_string_list = ["The Edge of", "The Pulse of", "The Sound of", "CRATE ADD"]
                 # crate one is just to update csv.
                 fid_crate = "/".join((model_folder,"crates_compiled.pkl"))
@@ -99,9 +128,9 @@ if FLAG_RUN:
                 dateLate = today
                 dateIn = [dateEarly,dateLate]
 
-
                 si.getNewTracks_df(sp,fid_list,search_string_list,dateIn)
 
+                # print(idsAdjust)
                 # nTracks = si.getNewTracks_df(sp, fid_edge,"The Edge of",dateIn)
                 # logging.info("Compiled Edge Of playlists.")
                 # nTracks = si.getNewTracks_df(sp, fid_pulse,"The Pulse of",dateIn)
@@ -125,6 +154,7 @@ if FLAG_RUN:
                 si.pickle2csv(fid_crate,"playlist_csvs/crates_compiled.csv")
                 si.dedupDF(fid_manual)
                 si.pickle2csv(fid_manual,"playlist_csvs/manual_compiled.csv")
+                si.pickle2csv(fid_down_archive,"playlist_csvs/down_arch_compiled.csv")
 
 
         except Exception as e:
@@ -169,10 +199,11 @@ if FLAG_RUN:
                         "Combined DW for the Week of "+dwDate \
                         ]
 
-            playlistShort = ["down","rr","dw","edge","pulse","sounds","crate","manual"]
+            playlistShort = ["down","rr","dw","down_archive","edge","pulse","sounds","crate","manual"]
 
             model_folder = "pkl_vals"
             pkl_locs = [
+                "down_arch_compiled.pkl",\
                 "edge_compiled.pkl",\
                 "pulse_compiled.pkl", \
                 "sounds_compiled.pkl", \
@@ -180,7 +211,7 @@ if FLAG_RUN:
                 "sounds_manual_compiled.pkl"
             ]
             nPlaylists =1
-            nPlaylists_cluster = 2
+            nPlaylists_cluster = 1#2
             nSongsPerPlaylist = 30
         #    print(playlists)
             if today.weekday() == 0:
@@ -215,7 +246,9 @@ if FLAG_RUN:
                             calcClusters_sub = False
                         si.clusterSinglePlaylist(sp,model_folder,fid_in,False,nPlaylists,analyzeCorpus=calcClusters_sub,out_append=plOut, pklIn=True)
 
-            #df sampled ones.
+            #
+
+
 
         except Exception as e:
             logging.error(e)
@@ -229,7 +262,7 @@ if FLAG_RUN:
             today = datetime.date.today()
             djDate = today.strftime("%m/%d/%Y")
 
-            plSearch="The Downselect, 2022"#"The Downselect, July 2021 Week 3"#"The Downselect"
+            plSearch="The Downselect, 2023"#"The Downselect, July 2021 Week 3"#"The Downselect"
 
             targetSampleSize = 50 #20
             tempoDelta = 10

@@ -94,7 +94,9 @@ def getPlaylistID(sp,strName,retName=False):
 
 # getPlaylistIDs(sp,strName): With sp handle, get all playlist IDs that have titles that have a provided substring.
 def getPlaylistIDs(sp,strName,retName=False):
+    #print(sp)
     currUser = sp.me()
+    #print(currUser["id"])
     userID = currUser["id"]
 
     if type(strName) == list:
@@ -206,10 +208,18 @@ def getTracksFromPlaylist(sp,plID,ret_track_info = True,ret_af = True, ret_pl_in
             canContinue = False
             while cnt < 1000  and not canContinue:
                 tmpFeatures = sp.audio_features(newIDs)
+
+                if not newIDs:
+                    # empty new tracks to add.
+                    canContinue=True
+                    tmpFeatures = []
+                    continue
                 if len(tmpFeatures) == len(newIDs):
                     canContinue = True
                 else:
-                    print(len(tmpFeatures))
+                    print(newIDs)
+                    print(tmpFeatures)
+#                    print("tmp features len "% len(tmpFeatures))
 
 #            print("%d,%d"%(len(tmpFeatures),len(newIDs)))
             audioFeatures = audioFeatures + tmpFeatures
@@ -364,9 +374,9 @@ def createPlaylist(sp,playlistName,objIn,incAnalysis = False):
     output_buffer = BytesIO()
     coverArt.save(output_buffer,format="JPEG")
     coverArt_b64 = base64.b64encode(output_buffer.getvalue())
-
+    print("encoded cover art")
     newPlay = sp.user_playlist_create(userID,playlistName,public=False,description=strDescription)
-
+    print("Post")
     playID = newPlay["id"]
     midBreak= False
 
@@ -408,14 +418,18 @@ def addToPlaylist(sp,playlistName,objIn):
     sp.playlist_add_items(plID,objIn[numRun*100:])
 
 def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
+    print("HERE in compile playlists")
     dw_ids = getPlaylistIDs(sp,playlistSearch)
+    print(dw_ids)
     dw_ids = list(filter(None,dw_ids))
-    dw_ids = [elt for elt in dw_ids if elt!='37i9dQZEVXcScWD9gb8qCj']
-
+    dw_ids = [elt for elt in dw_ids if (elt!='37i9dQZEVXcScWD9gb8qCj')]
     trackIds = []
     for playID in dw_ids:
-        (tmp,)= getTracksFromPlaylist(sp,playID,False,False)
-        trackIds = trackIds + tmp
+        try:
+            (tmp,)= getTracksFromPlaylist(sp,playID,False,False)
+            trackIds = trackIds + tmp
+        except Exception as e:
+            logging.warning(e)
 
     print("Num PL: "+ str(len(dw_ids)))
     print("Num Track IDs:" + str(len(trackIds)))
@@ -424,14 +438,14 @@ def compilePlaylists(sp,playlistSearch,playlistRemove,playlistTitle):
     trackIdsUnique = list(dict.fromkeys(trackIds))
     print("Number of unique tracks: " + str(len(trackIdsUnique)))
 
-    # Remove blacklisted tracks
-    pl_id = getPlaylistID(sp,playlistRemove)
-    (trackIds_rm,) = getTracksFromPlaylist(sp,pl_id,False,False)
-    for idVal in trackIds_rm:
-        try:
-            trackIdsUnique.remove(idVal)
-        except:
-            pass
+    ## Remove blacklisted tracks
+    # pl_id = getPlaylistID(sp,playlistRemove)
+    # (trackIds_rm,) = getTracksFromPlaylist(sp,pl_id,False,False)
+    # for idVal in trackIds_rm:
+    #     try:
+    #         trackIdsUnique.remove(idVal)
+    #     except:
+    #         pass
 
     indOut = removeSavedTracks(sp,trackIdsUnique)
     tracksOut = [trackIdsUnique[idx] for idx in indOut]
@@ -685,7 +699,7 @@ def dedupDF(fid_in):
     df_out = df_in.drop_duplicates(subset=["Title","Duration_ms"])
     df_out.to_pickle(fid_in)
 
-def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True):
+def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True,appendDate = True,df_str=None):
     today=date.today()
     right_now = datetime.now()
     pl_id = getPlaylistID(sp,playlistName)
@@ -701,19 +715,41 @@ def cyclePlaylist(sp,playlistName,nDaysCycle,removeTracks=False,newPl = True):
             idsAdjust += [tr_ids[idx]]
 
     date_str_add = datetime.strftime(today,"%B %Y")
-    string_add = playlistName + ", " + date_str_add
+
+    if appendDate:
+        string_add = playlistName + ", " + date_str_add
+    else:
+        string_add = "ARCHIVE: " + playlistName
     if idsAdjust:
-        if newPl:
-            # create playlist
-            createPlaylist(sp,string_add,idsAdjust,False)
+        if df_str == None:
+            if newPl:
+                # create playlist
+                createPlaylist(sp,string_add,idsAdjust,False)
+            else:
+                addToPlaylist(sp,string_add,idsAdjust)
+            retVal = idsAdjust
         else:
-            addToPlaylist(sp,string_add,idsAdjust)
+            # THIS IS JANK AS HELL
+            createPlaylist(sp,"TMP_",idsAdjust,False)
+            crateCompileSingle(sp,fid_in="pkl_vals/tmp_compiled.pkl",searchID="TMP_")
+
+            df_add = pd.read_pickle("pkl_vals/tmp_compiled.pkl")
+            df_base = pd.read_pickle(df_str)
+
+            now = datetime.now()
+            dtString = now.strftime("%m/%d/%Y")
+            df_add["Date Added"] = dtString
+
+            df_base.append(df_add)
+            df_base.to_pickle(df_str)
+
+            retVal = idsAdjust,df_base
 
         if removeTracks:
             logging.info("Removing tracks from "+ playlistName)
             removeTracksFromPlaylist(sp,pl_id,idsAdjust)
 
-        return idsAdjust
+        return retVal
     else:
         logging.info("No tracks to remove.")
         print("No tracks to remove.")
@@ -1212,9 +1248,9 @@ def saveTracksFromPlaylists(sp,plName,filepath):
     trackDF.to_pickle(filepath)
 
 
-def saveTrackDF(df,filepath):
+def saveTrackDF(df,filepath,djOut=False):
     dfTmp = df
-    if isinstance(df["Artist"].iloc[0],list):
+    if isinstance(df["Artist"].iloc[0],list) and not djOut:
         # Note: Here there may be a smarter delimiter between artists and artist URIS,
         dfTmp["Artist"] = dfTmp["Artist"].apply(lambda x:",".join(x))
         dfTmp["Artist URI"] = dfTmp["Artist URI"].apply(lambda x:",".join(x))
@@ -1233,16 +1269,31 @@ def csv2playlist(sp,fname_in,playlist_name):
     createPlaylist(sp, playlist_name,df_in,False)
 
 # Exporting playlist info to CSV
-def savePlaylistToCSV(sp,plSearch,fileDir,sortTempo=False):
+def savePlaylistToCSV(sp,plSearch,fileDir,sortTempo=False,djOut=False):
     plID,plName = getPlaylistID(sp,plSearch,retName=True)
     tracksSave,audioFeatures = getTracksFromPlaylist(sp,plID)
     df_save = tracksToDF(tracksSave,audioFeatures)
     fNameSanitized = utils.slugify(plName)
     if sortTempo:
         df_save = getTracksWithTempo(df_save,[0, 300],False)
-    saveTrackDF(df_save,fileDir+fNameSanitized+".csv")
+    if djOut:
+        df_save = df_save.reindex(columns=['Title', 'Artist', 'Tempo', 'DJ Key','Valence','TimeSig','Danceability','Energy'])
+    saveTrackDF(df_save,fileDir+fNameSanitized+".csv",djOut)
 
-def savePlaylistsToCSV(sp,plSearch,fileDir,sortTempo=False):
+def tempoFilterPlaylist(sp,plSearch,fileDir,tempo_window,key_window,saveCSV=False):
+    plID,plName = getPlaylistID(sp,plSearch,retName=True)
+    tracksSave,audioFeatures = getTracksFromPlaylist(sp,plID)
+    df_save = tracksToDF(tracksSave,audioFeatures)
+    df_save = djSort(df_save,tempo_window,key_window)
+    pl_name_out = plName + " from " + str(tempo_window[0])+" to " + str(tempo_window[1])+" BPM"
+    fNameSanitized = utils.slugify(pl_name_out)
+    createPlaylist(sp,pl_name_out,df_save)
+    if saveCSV:
+        df_save = df_save.reindex(columns=['Title', 'Artist', 'Tempo', 'DJ Key','Valence','TimeSig','Danceability','Energy'])
+        saveTrackDF(df_save,fileDir+fNameSanitized+".csv",True)
+
+
+def savePlaylistsToCSV(sp,plSearch,fileDir,sortTempo=False,djOut = False):
     plIDs,plNames = getPlaylistIDs(sp,plSearch,retName=True)
     for idx,elt in enumerate(plIDs):
         tracksSave,audioFeatures = getTracksFromPlaylist(sp,plIDs[idx])
@@ -1250,10 +1301,12 @@ def savePlaylistsToCSV(sp,plSearch,fileDir,sortTempo=False):
         fNameSanitized = utils.slugify(plNames[idx])
         if sortTempo:
             df_save = getTracksWithTempo(df_save,[0, 300],False)
+        if djOut:
+            df_save = df_save.reindex(columns=['Title', 'Artist', 'Tempo', 'DJ Key','Valence','TimeSig','Danceability','Energy'])
 
-        saveTrackDF(df_save,fileDir+fNameSanitized+".csv")
+        saveTrackDF(df_save,fileDir+fNameSanitized+".csv",djOut)
 
-def saveUserPlaylistsToCSV(sp,fileDir,sortTempo=False):
+def saveUserPlaylistsToCSV(sp,fileDir,sortTempo=False,djOut = False):
     plIDs,plNames = getUserPlaylistIDs(sp,retName=True)
     for idx,elt in enumerate(plIDs):
         tracksSave,audioFeatures = getTracksFromPlaylist(sp,plIDs[idx])
@@ -1262,5 +1315,8 @@ def saveUserPlaylistsToCSV(sp,fileDir,sortTempo=False):
             fNameSanitized = utils.slugify(plNames[idx])
             if sortTempo:
                 df_save = getTracksWithTempo(df_save,[0, 300],False)
-            saveTrackDF(df_save,fileDir+fNameSanitized+".csv")
+            if djOut:
+                df_save = df_save.reindex(columns=['Title', 'Artist', 'Tempo', 'DJ Key','Valence','TimeSig','Danceability','Energy'])
+            saveTrackDF(df_save,fileDir+fNameSanitized+".csv",djOut)
+
 # def getCurrentUserPlaylists(sp):
